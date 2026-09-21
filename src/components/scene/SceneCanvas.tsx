@@ -45,7 +45,20 @@ export default function SceneCanvas() {
 
   const aberration = useMemo(() => new THREE.Vector2(0.0006, 0.0009), []);
 
-  if (failed) return null;
+  /*
+   * Check for WebGL2 before mounting. three throws when it cannot get a
+   * context, and an exception is a worse failure mode than simply not drawing
+   * the backdrop.
+   */
+  const [supported] = useState(() => {
+    try {
+      return !!document.createElement("canvas").getContext("webgl2");
+    } catch {
+      return false;
+    }
+  });
+
+  if (failed || !supported) return null;
 
   return (
     <div

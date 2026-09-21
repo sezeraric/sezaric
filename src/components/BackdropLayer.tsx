@@ -7,6 +7,7 @@ import { phase } from "@/lib/curves";
 import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
 import { useIsNarrow } from "@/lib/useViewport";
 import { ScrollVideo } from "./ui/ScrollVideo";
+import { SceneBoundary } from "./SceneBoundary";
 
 /**
  * Everything behind the page, in one fixed layer.
@@ -64,7 +65,9 @@ export default function BackdropLayer() {
         <div className="absolute inset-0 bg-ink/45" />
       </div>
 
-      <SceneCanvas />
+      <SceneBoundary>
+        <SceneCanvas />
+      </SceneBoundary>
     </div>
   );
 }
