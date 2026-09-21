@@ -60,28 +60,59 @@ export function pinnedProgress(el: HTMLElement, vh: number): number {
   return clamp01(-rect.top / scrollable);
 }
 
-/** Recompute every derived value. Called from the Lenis scroll callback. */
+/**
+ * Section geometry, measured once and cached.
+ *
+ * Reading getBoundingClientRect on every scroll event forces the browser to
+ * recompute layout each time, and a phone's native scroll fires dozens of
+ * events a second. That was a real source of scroll jank on mobile. The
+ * sections' document offsets only change when layout changes, so they are
+ * measured on resize (and whenever the page's size changes, via a
+ * ResizeObserver) and every scroll event after that is plain arithmetic.
+ */
+type Geometry = {
+  heroTop: number;
+  heroHeight: number;
+  btTop: number;
+  btHeight: number;
+  docHeight: number;
+};
+
+let geometry: Geometry | null = null;
+
+export function remeasure() {
+  if (typeof document === "undefined") return;
+  const y = window.scrollY;
+  const hero = document.getElementById(SECTION.hero);
+  const bt = document.getElementById(SECTION.bulletTime);
+  const h = hero?.getBoundingClientRect();
+  const b = bt?.getBoundingClientRect();
+  geometry = {
+    heroTop: h ? h.top + y : 0,
+    heroHeight: h ? h.height : 1,
+    btTop: b ? b.top + y : 0,
+    btHeight: b ? b.height : 1,
+    docHeight: document.documentElement.scrollHeight,
+  };
+  scroll.vh = window.innerHeight;
+}
+
+/** Recompute every derived value from the current scroll offset. No layout reads. */
 export function measure() {
   if (typeof document === "undefined") return;
-  const vh = window.innerHeight;
-  scroll.vh = vh;
+  if (!geometry) remeasure();
+  const g = geometry!;
+  const vh = scroll.vh || window.innerHeight;
+  const y = scroll.y;
 
-  const doc = document.documentElement;
-  const max = doc.scrollHeight - vh;
-  scroll.progress = max > 0 ? clamp01(scroll.y / max) : 0;
+  const max = g.docHeight - vh;
+  scroll.progress = max > 0 ? clamp01(y / max) : 0;
 
-  const hero = document.getElementById(SECTION.hero);
-  if (hero) {
-    const rect = hero.getBoundingClientRect();
-    scroll.heroOut = clamp01(-rect.top / Math.max(rect.height, 1));
-  }
+  scroll.heroOut = clamp01((y - g.heroTop) / Math.max(g.heroHeight, 1));
 
-  const bt = document.getElementById(SECTION.bulletTime);
-  if (bt) {
-    const rect = bt.getBoundingClientRect();
-    scroll.bulletTime = pinnedProgress(bt, vh);
-    // 0 when the section's top is a full viewport below, 1 when it reaches the
-    // top of the screen and the pin takes over.
-    scroll.bulletEntry = clamp01(1 - rect.top / Math.max(vh, 1));
-  }
+  const scrollable = g.btHeight - vh;
+  scroll.bulletTime = scrollable > 0 ? clamp01((y - g.btTop) / scrollable) : 0;
+  // 0 when the section's top is a full viewport below, 1 when it reaches the
+  // top of the screen and the pin takes over.
+  scroll.bulletEntry = clamp01(1 - (g.btTop - y) / Math.max(vh, 1));
 }

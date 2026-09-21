@@ -22,6 +22,7 @@ export function scrollToElement(el: HTMLElement, reduced: boolean) {
     instance.scrollTo(el, { duration: 1.3 });
     return;
   }
-  // No Lenis (reduced motion runs native scrolling), so native is correct here.
-  el.scrollIntoView({ behavior: "auto", block: "start" });
+  // No Lenis — touch devices and reduced motion scroll natively — so native is
+  // correct here. Smooth on touch, instant under reduced motion.
+  el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
 }

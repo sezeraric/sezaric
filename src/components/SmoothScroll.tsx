@@ -2,22 +2,51 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
-import { measure, scroll } from "@/lib/scroll";
+import { measure, remeasure, scroll } from "@/lib/scroll";
 import { setLenis } from "@/lib/smoothScroll";
 
 /**
- * Lenis smooth scrolling, wired into the module-level scroll state.
+ * Smooth scrolling for mouse wheels, native scrolling for everything else.
  *
- * Nothing here sets React state: the 3D scene samples `scroll` inside useFrame,
- * so scrolling costs one measure() per event and zero re-renders.
+ * Lenis exists to smooth the coarse, stepped input of a mouse wheel. On a
+ * touch screen it has nothing to fix — iOS and Android momentum scrolling is
+ * already better than anything done in JavaScript — and intercepting it made
+ * scrolling on phones feel wrong. It also carried a touch multiplier that
+ * amplified every swipe. So Lenis only runs for a fine pointer; phones, tablets
+ * and reduced motion get the platform's own scrolling.
+ *
+ * Either way the scene's numbers come from the same measure(), and nothing
+ * here sets React state: scrolling costs zero re-renders.
  */
 export default function SmoothScroll() {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const touch = window.matchMedia("(pointer: coarse)").matches;
 
-    // Respecting reduced motion means native scrolling, but the scene still
-    // needs its numbers — so fall back to a plain scroll listener.
-    if (reduced) {
+    if (process.env.NODE_ENV === "development") {
+      // Handle for reading the live scroll numbers while debugging.
+      (window as unknown as { __scroll?: typeof scroll }).__scroll = scroll;
+    }
+
+    // Section offsets change when layout does — images and fonts arriving,
+    // the viewport resizing, the mobile URL bar collapsing. Re-measure then,
+    // not on every scroll event.
+    const onLayout = () => {
+      remeasure();
+      measure();
+    };
+    const ro = new ResizeObserver(onLayout);
+    ro.observe(document.body);
+    window.addEventListener("resize", onLayout);
+    onLayout();
+
+    if (reduced || touch) {
+      // Without Lenis, in-page links would jump instantly. The browser's own
+      // smooth scrolling is right here — but never under reduced motion.
+      const html = document.documentElement;
+      const previous = html.style.scrollBehavior;
+      if (!reduced) html.style.scrollBehavior = "smooth";
+
       const onScroll = () => {
         scroll.y = window.scrollY;
         scroll.velocity = 0;
@@ -25,10 +54,11 @@ export default function SmoothScroll() {
       };
       onScroll();
       window.addEventListener("scroll", onScroll, { passive: true });
-      window.addEventListener("resize", onScroll);
       return () => {
+        html.style.scrollBehavior = previous;
         window.removeEventListener("scroll", onScroll);
-        window.removeEventListener("resize", onScroll);
+        window.removeEventListener("resize", onLayout);
+        ro.disconnect();
       };
     }
 
@@ -36,9 +66,13 @@ export default function SmoothScroll() {
       duration: 1.05,
       easing: (t) => 1 - Math.pow(1 - t, 3),
       smoothWheel: true,
-      touchMultiplier: 1.6,
       wheelMultiplier: 1,
     });
+
+    if (process.env.NODE_ENV === "development") {
+      // Handle for driving the page to an exact scroll offset while debugging.
+      (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
+    }
 
     setLenis(lenis);
 
@@ -48,21 +82,12 @@ export default function SmoothScroll() {
       measure();
     });
 
-    if (process.env.NODE_ENV === "development") {
-      // Handle for driving the page to an exact scroll offset while debugging.
-      (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
-    }
-
     let raf = 0;
     const loop = (time: number) => {
       lenis.raf(time);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-
-    const onResize = () => measure();
-    window.addEventListener("resize", onResize);
-    measure();
 
     // In-page anchors have to go through Lenis or they fight it.
     const onClick = (ev: MouseEvent) => {
@@ -72,14 +97,15 @@ export default function SmoothScroll() {
       const el = document.getElementById(id);
       if (!el) return;
       ev.preventDefault();
-      lenis.scrollTo(el, { offset: 0, duration: 1.2 });
+      lenis.scrollTo(el, { duration: 1.2 });
     };
     document.addEventListener("click", onClick);
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onLayout);
       document.removeEventListener("click", onClick);
+      ro.disconnect();
       setLenis(null);
       lenis.destroy();
     };
