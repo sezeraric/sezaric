@@ -31,7 +31,7 @@ export function Hero({ d }: { d: Dictionary }) {
         aria-hidden="true"
       />
 
-      <div className="shell relative w-full py-24 sm:py-28">
+      <div className="shell relative w-full pb-10 pt-20 sm:py-28">
         <div className="max-w-2xl">
           <div className="hairline rounded-sm bg-ink/70 p-4 backdrop-blur-[2px] sm:p-6">
             <div className="mb-4 flex items-center gap-2 border-b border-line pb-3">
@@ -43,11 +43,43 @@ export function Hero({ d }: { d: Dictionary }) {
               </span>
             </div>
             <Terminal lines={d.boot} onDone={() => setBooted(true)} />
+
+            {/*
+              The rabbit comes out right under the line that tells you to follow
+              it. It used to sit at the bottom of the hero, which on a phone was
+              below the fold — the line said "follow the white rabbit" and the
+              rabbit was nowhere on screen. The terminal is at the top of every
+              screen, so this is always in view.
+
+              A real anchor: the smooth-scroll handler takes the page down while
+              the rabbit bounds off ahead.
+            */}
+            {booted && (
+              <a
+                href="#bullet-time"
+                onClick={() => setLeaving(true)}
+                aria-label={d.hero.followRabbit}
+                className="group mt-3 flex items-center gap-3 font-mono text-[13px] text-mx transition-colors hover:text-mx-soft sm:text-sm"
+              >
+                <span
+                  className={`rabbit block h-11 w-11 ${
+                    reduced ? "" : leaving ? "rabbit-leave" : "rabbit-enter"
+                  }`}
+                >
+                  <span className={`block h-full w-full ${reduced || leaving ? "" : "rabbit-idle"}`}>
+                    <RabbitGlyph className="h-full w-full" />
+                  </span>
+                </span>
+                <span aria-hidden="true" className="inline-block transition-transform group-hover:translate-y-0.5">
+                  ↓
+                </span>
+              </a>
+            )}
           </div>
         </div>
 
         <div
-          className="mt-10 max-w-4xl"
+          className="mt-7 max-w-4xl sm:mt-10"
           style={{
             opacity: booted ? 1 : 0,
             transform: booted ? "none" : "translate3d(0,1.25rem,0)",
@@ -61,43 +93,13 @@ export function Hero({ d }: { d: Dictionary }) {
           <p className="mt-5 font-mono text-[11px] uppercase leading-relaxed tracking-[0.16em] text-mx glow-soft sm:text-sm sm:tracking-[0.18em]">
             {d.meta.role} — {d.meta.focus}
           </p>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-text-dim sm:text-lg">
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-text-dim sm:mt-6 sm:text-lg">
             {d.meta.tagline}
           </p>
         </div>
       </div>
 
-      <div className="shell relative pb-10" style={{ opacity: booted ? 1 : 0, transition: "opacity 1.2s ease 400ms" }}>
-        {/*
-          The rabbit the boot sequence tells you to follow. It appears the moment
-          that line finishes typing, and following it is the way in: the link is
-          a real anchor, so the smooth-scroll handler takes the page down while
-          the rabbit bounds off ahead.
-        */}
-        <a
-          href="#bullet-time"
-          onClick={() => setLeaving(true)}
-          aria-label={d.hero.followRabbit}
-          className="group inline-flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.25em] text-text-faint transition-colors hover:text-mx"
-        >
-          <span
-            key={booted ? "in" : "out"}
-            className={`rabbit block h-12 w-12 ${
-              reduced ? "" : leaving ? "rabbit-leave" : booted ? "rabbit-enter" : ""
-            }`}
-          >
-            <span className={`block h-full w-full ${reduced || leaving ? "" : "rabbit-idle"}`}>
-              <RabbitGlyph className="h-full w-full" />
-            </span>
-          </span>
-          <span>
-            {d.hero.followRabbit}
-            <span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-y-0.5">
-              ↓
-            </span>
-          </span>
-        </a>
-      </div>
+
     </section>
   );
 }
