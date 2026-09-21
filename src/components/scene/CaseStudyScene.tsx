@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import { RoundedBox, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { showcase } from "@/lib/curves";
 
 /**
  * The case-study showcase: a phone whose screen changes as you scroll, with
@@ -95,7 +96,14 @@ export type ShowcaseState = {
   progress: number;
 };
 
-function Figure({ stateRef, layout }: { stateRef: React.RefObject<ShowcaseState>; layout: Layout }) {
+function Figure({
+  stateRef,
+  spread,
+}: {
+  stateRef: React.RefObject<ShowcaseState>;
+  spread: number;
+}) {
+  const group = useRef<THREE.Group>(null);
   const { nodes } = useGLTF(MODEL);
 
   const geometry = useMemo(() => {
@@ -129,27 +137,43 @@ function Figure({ stateRef, layout }: { stateRef: React.RefObject<ShowcaseState>
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30);
+    const c = showcase(stateRef.current?.progress ?? 0, spread);
+    const k = Math.min(1, dt * 6);
+
     material.uniforms.uTime.value += dt;
-    const target = THREE.MathUtils.smoothstep(stateRef.current?.progress ?? 0, 0, 0.12);
     material.uniforms.uOpacity.value +=
-      (target - material.uniforms.uOpacity.value) * Math.min(1, dt * 5);
+      (c.figureOpacity - material.uniforms.uOpacity.value) * k;
+
+    const g = group.current;
+    if (!g) return;
+    g.position.x += (c.figureX - g.position.x) * k;
+    g.position.y += (c.figureY - g.position.y) * k;
+    g.position.z += (c.figureZ - g.position.z) * k;
+    const s = c.figureScale;
+    g.scale.x += (s - g.scale.x) * k;
+    g.scale.y += (s - g.scale.y) * k;
+    g.scale.z += (s - g.scale.z) * k;
+    // Turns to face the camera as it takes the centre.
+    g.rotation.y += (-c.figureX * 0.22 - g.rotation.y) * k;
   });
 
   return (
-    <mesh geometry={geometry} position={layout.figure} scale={layout.figureScale} frustumCulled={false}>
-      <primitive object={material} attach="material" />
-    </mesh>
+    <group ref={group} scale={1.55}>
+      <mesh geometry={geometry} frustumCulled={false}>
+        <primitive object={material} attach="material" />
+      </mesh>
+    </group>
   );
 }
 
 function Phone({
   shots,
   stateRef,
-  layout,
+  spread,
 }: {
   shots: string[];
   stateRef: React.RefObject<ShowcaseState>;
-  layout: Layout;
+  spread: number;
 }) {
   const group = useRef<THREE.Group>(null);
   const textures = useLoader(THREE.TextureLoader, shots);
@@ -179,39 +203,62 @@ function Phone({
     [textures],
   );
 
-  useEffect(() => () => material.dispose(), [material]);
+  // The body needs its own fade: the screen's opacity lives in a shader
+  // uniform, and without this the chassis stayed behind as a dark rectangle
+  // after the phone was supposed to have left.
+  const bodyMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#0b0f0d",
+        roughness: 0.35,
+        metalness: 0.7,
+        transparent: true,
+        opacity: 0,
+      }),
+    [],
+  );
+
+  useEffect(() => () => {
+    material.dispose();
+    bodyMaterial.dispose();
+  }, [material, bodyMaterial]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30);
     const p = stateRef.current?.progress ?? 0;
+    const c = showcase(p, spread);
     const u = material.uniforms;
 
     // Map scroll onto the screenshot sequence: A and B are the two frames the
     // scroll is currently between, and uMix is how far between them it is.
     const span = textures.length - 1;
-    const pos = THREE.MathUtils.clamp(p, 0, 1) * span;
+    const pos = c.screen * span;
     const i = Math.min(Math.floor(pos), span - 1);
     u.uA.value = textures[i];
     u.uB.value = textures[i + 1];
     // Hold each frame, then cross-fade quickly, rather than a constant blur.
     u.uMix.value = THREE.MathUtils.smoothstep(pos - i, 0.35, 0.75);
 
-    const target = THREE.MathUtils.smoothstep(p, 0, 0.1);
-    u.uOpacity.value += (target - u.uOpacity.value) * Math.min(1, dt * 6);
+    const k = Math.min(1, dt * 6);
+    const appear = THREE.MathUtils.smoothstep(p, 0, 0.08);
+    const visible = appear * c.phoneOpacity;
+    u.uOpacity.value += (visible - u.uOpacity.value) * k;
+    bodyMaterial.opacity += (visible - bodyMaterial.opacity) * k;
 
-    if (group.current) {
-      // A slow turn across the section, so the phone is never a flat rectangle.
-      const yaw = THREE.MathUtils.lerp(0.34, -0.16, THREE.MathUtils.smoothstep(p, 0, 1));
-      group.current.rotation.y += (yaw - group.current.rotation.y) * Math.min(1, dt * 4);
-      group.current.position.y +=
-        (Math.sin(p * Math.PI) * 0.06 - group.current.position.y) * Math.min(1, dt * 4);
-    }
+    const g = group.current;
+    if (!g) return;
+    g.position.x += (c.phoneX - g.position.x) * k;
+    g.position.z += (c.phoneZ - g.position.z) * k;
+    g.rotation.y += (c.phoneYaw - g.rotation.y) * k;
+    // A little float, so it never sits perfectly still.
+    const bob = Math.sin(p * Math.PI * 2) * 0.05;
+    g.position.y += (bob - g.position.y) * Math.min(1, dt * 3);
   });
 
   return (
-    <group ref={group} position={layout.phone}>
+    <group ref={group}>
       <RoundedBox args={[SCREEN_W + 0.075, SCREEN_H + 0.075, 0.055]} radius={0.055} smoothness={4}>
-        <meshStandardMaterial color="#0b0f0d" roughness={0.35} metalness={0.7} />
+        <primitive object={bodyMaterial} attach="material" />
       </RoundedBox>
       <mesh position={[0, 0, 0.029]}>
         <planeGeometry args={[SCREEN_W, SCREEN_H]} />
@@ -221,30 +268,23 @@ function Phone({
   );
 }
 
-type Layout = {
-  figure: [number, number, number];
-  figureScale: number;
-  phone: [number, number, number];
-};
-
 /**
- * Side by side needs width. On a narrow canvas the pair is stacked in depth
- * instead — phone in front, figure behind it — rather than pushed off frame.
+ * How much horizontal swing the canvas can take. A narrow one cannot hold two
+ * objects side by side, so the crossing becomes a small shift and the depth
+ * between them does the separating instead.
  */
-function useLayout(): Layout {
+function useSpread(): number {
   const { size, camera } = useThree();
   const aspect = size.width / Math.max(size.height, 1);
   const wide = aspect > 0.95;
 
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
-    cam.position.set(0, 0.15, wide ? 5.6 : 6.6);
+    cam.position.set(0, 0.15, wide ? 5.8 : 6.8);
     cam.updateProjectionMatrix();
   }, [camera, wide]);
 
-  return wide
-    ? { figure: [-1.15, 0, -0.9], figureScale: 1.55, phone: [0.75, 0, 0] }
-    : { figure: [0, 0.05, -1.7], figureScale: 1.75, phone: [0, 0, 0] };
+  return wide ? 1 : 0.34;
 }
 
 export function CaseStudyScene({
@@ -254,7 +294,7 @@ export function CaseStudyScene({
   shots: string[];
   stateRef: React.RefObject<ShowcaseState>;
 }) {
-  const layout = useLayout();
+  const spread = useSpread();
 
   return (
     <>
@@ -263,8 +303,8 @@ export function CaseStudyScene({
       <directionalLight position={[3, 4, 5]} intensity={1.1} color="#9effc4" />
       <directionalLight position={[-4, 1, -2]} intensity={0.5} color="#1d7a3d" />
 
-      <Figure stateRef={stateRef} layout={layout} />
-      <Phone shots={shots} stateRef={stateRef} layout={layout} />
+      <Figure stateRef={stateRef} spread={spread} />
+      <Phone shots={shots} stateRef={stateRef} spread={spread} />
     </>
   );
 }

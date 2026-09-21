@@ -65,3 +65,62 @@ export function rainIntensity(entry: number, bulletTime: number): number {
   const over = backdropPresence(entry, bulletTime);
   return 0.95 - 0.65 * over;
 }
+
+
+/**
+ * The case-study showcase choreography.
+ *
+ * Four beats across the pinned section:
+ *
+ *   1. phone left, figure right
+ *   2. they cross over — phone right, figure left
+ *   3. held, while the last screen is read
+ *   4. the phone leaves and the figure walks to the centre and grows
+ *
+ * `spread` scales the horizontal offsets: a narrow canvas has no room to put
+ * two objects side by side, so it gets a much smaller swing and leans on depth
+ * instead. The finale is the same at every width.
+ */
+export type Showcase = {
+  phoneX: number;
+  phoneZ: number;
+  phoneYaw: number;
+  phoneOpacity: number;
+  figureX: number;
+  figureY: number;
+  figureZ: number;
+  figureScale: number;
+  figureOpacity: number;
+  /** 0..1 across the screenshot sequence; finishes before the finale starts. */
+  screen: number;
+};
+
+const FINALE_START = 0.84;
+
+export function showcase(p: number, spread: number): Showcase {
+  const t = clamp01(p);
+
+  // Beat 1 -> 2: a single crossing, eased so they pass each other rather than
+  // teleport. 0 = phone left, 1 = phone right.
+  const cross = smoothstep(t, 0.3, 0.62);
+  const side = -1 + 2 * cross;
+
+  // Beat 4: the phone leaves, the figure takes the middle and comes forward.
+  const finale = smoothstep(t, FINALE_START, 1);
+
+  return {
+    phoneX: side * 0.78 * spread * (1 - finale) + finale * 1.9 * spread,
+    phoneZ: -finale * 1.2,
+    phoneYaw: 0.3 - 0.52 * cross,
+    phoneOpacity: 1 - smoothstep(t, FINALE_START, 0.95),
+    figureX: -side * 1.18 * spread * (1 - finale),
+    // Drops as it grows: at full size it no longer fits the frame, and losing
+    // the legs reads as a portrait while losing the head reads as a bug.
+    figureY: -finale * 0.85,
+    figureZ: -0.9 * (1 - finale) + finale * 0.5,
+    figureScale: 1.55 + finale * 0.8,
+    figureOpacity: smoothstep(t, 0, 0.1),
+    // The screens finish before the finale so the last one is actually read.
+    screen: clamp01(t / FINALE_START),
+  };
+}

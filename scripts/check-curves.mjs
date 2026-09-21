@@ -21,7 +21,7 @@ try {
     { stdio: "inherit" },
   );
 
-  const { phase, rainIntensity, backdropPresence } = await import(pathToFileURL(out).href);
+  const { phase, rainIntensity, backdropPresence, showcase } = await import(pathToFileURL(out).href);
 
   // The approach: section rising into view, pin not started yet (p is still 0).
   const approach = [];
@@ -78,6 +78,48 @@ try {
   // Rain has to get out of the way of the clip, and of body copy later.
   if (rainIntensity(1, 0.5) > 0.4) fail.push("rain too strong over the clip");
   if (rainIntensity(1, 1) > 0.2) fail.push("rain too strong over body copy");
+
+  // --- case-study showcase -------------------------------------------------
+  const show = [];
+  for (const p of [0, 0.2, 0.35, 0.5, 0.62, 0.75, 0.84, 0.92, 1]) {
+    const c = showcase(p, 1);
+    show.push({
+      p,
+      phoneX: +c.phoneX.toFixed(2),
+      figureX: +c.figureX.toFixed(2),
+      figureScale: +c.figureScale.toFixed(2),
+      figureY: +c.figureY.toFixed(2),
+      phoneOpacity: +c.phoneOpacity.toFixed(2),
+      screen: +c.screen.toFixed(2),
+    });
+  }
+  console.log("Showcase:");
+  console.table(show);
+
+  const a0 = showcase(0, 1);
+  const aMid = showcase(0.5, 1);
+  const aEnd = showcase(1, 1);
+
+  // They must start on opposite sides...
+  if (Math.sign(a0.phoneX) === Math.sign(a0.figureX)) {
+    fail.push("phone and figure start on the same side");
+  }
+  // ...and swap over.
+  if (Math.sign(showcase(0.15, 1).phoneX) === Math.sign(showcase(0.75, 1).phoneX)) {
+    fail.push("phone never crosses to the other side");
+  }
+  if (Math.sign(showcase(0.15, 1).figureX) === Math.sign(showcase(0.75, 1).figureX)) {
+    fail.push("figure never crosses to the other side");
+  }
+  // The finale: figure centred, larger, phone gone.
+  if (Math.abs(aEnd.figureX) > 1e-6) fail.push(`figure not centred at the end (${aEnd.figureX})`);
+  if (aEnd.figureScale <= a0.figureScale) fail.push("figure does not grow at the end");
+  if (aEnd.phoneOpacity > 1e-6) fail.push(`phone still visible at the end (${aEnd.phoneOpacity})`);
+  if (aEnd.figureY >= 0) fail.push("figure does not drop as it grows, so it will be cropped at the head");
+  // Every screenshot has to be reached before the finale takes over.
+  if (showcase(0.84, 1).screen < 0.999) fail.push("last screenshot never fully shown");
+  if (a0.screen > 1e-6) fail.push("screen sequence does not start at the first shot");
+  void aMid;
 
   if (fail.length) {
     console.error("FAIL:\n - " + fail.join("\n - "));

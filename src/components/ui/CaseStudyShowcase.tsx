@@ -120,7 +120,7 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
   }
 
   return (
-    <div ref={section} className="relative h-[200svh]">
+    <div ref={section} className="relative h-[300svh]">
       <div className="sticky top-0 flex h-svh flex-col justify-center">
         <p className="eyebrow">{label}</p>
 
