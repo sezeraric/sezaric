@@ -1,21 +1,21 @@
-import { skills } from "@/lib/content";
+import type { Dictionary } from "@/i18n";
 import { Reveal } from "./Reveal";
 
-export function Skills() {
+export function Skills({ d }: { d: Dictionary }) {
   return (
     <section className="shell py-16 sm:py-24">
       <Reveal>
-        <p className="eyebrow">{"// arsenal"}</p>
+        <p className="eyebrow">{d.skills.eyebrow}</p>
       </Reveal>
 
       <dl className="mt-10 divide-y divide-line border-y border-line">
-        {skills.map((group, i) => (
+        {d.skills.groups.map((group, i) => (
           <Reveal key={group.group} as="div" delay={i * 60}>
             <div className="grid gap-3 py-6 md:grid-cols-[14rem_1fr] md:gap-8">
-              <dt className="font-mono text-xs tracking-[0.2em] uppercase text-mx-dim">
+              <dt className="font-mono text-xs uppercase tracking-[0.2em] text-mx-dim">
                 {group.group}
               </dt>
-              <dd className="flex flex-wrap gap-x-2 gap-y-2">
+              <dd className="flex flex-wrap gap-2">
                 {group.items.map((item) => (
                   <span
                     key={item}

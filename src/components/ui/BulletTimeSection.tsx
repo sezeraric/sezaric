@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { bullets, bulletTime } from "@/lib/content";
+import type { Dictionary } from "@/i18n";
 import { phase } from "@/lib/curves";
 import { scroll } from "@/lib/scroll";
 
@@ -78,7 +78,8 @@ function Panel({ show, children }: { show: boolean; children: React.ReactNode })
   );
 }
 
-export function BulletTimeSection() {
+export function BulletTimeSection({ d }: { d: Dictionary }) {
+  const { bullets, bulletTime } = d;
   const { stage, barRef, items } = useScrollDriven(bullets.length);
 
   return (
@@ -141,14 +142,14 @@ export function BulletTimeSection() {
           </Panel>
 
           <Panel show={stage === 1}>
-            <p className="eyebrow">{"// incoming"}</p>
+            <p className="eyebrow">{bulletTime.incoming}</p>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-text-dim sm:text-lg">
               {bulletTime.body}
             </p>
           </Panel>
 
           <Panel show={stage === 2}>
-            <p className="eyebrow">{"// resolved"}</p>
+            <p className="eyebrow">{bulletTime.resolved}</p>
             <p className="mt-4 max-w-xl text-[clamp(1.25rem,3vw,2rem)] font-medium leading-snug text-text">
               {bulletTime.outro}
             </p>

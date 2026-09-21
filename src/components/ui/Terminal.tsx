@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
 
-type Line = { text: string; delay: number; tone?: "ok" | "accent" };
+import type { BootLine } from "@/i18n";
+
+type Line = BootLine;
 
 /**
  * Types a boot sequence out line by line.
