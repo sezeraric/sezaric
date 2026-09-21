@@ -182,13 +182,21 @@ html.lenis, html.lenis body { height: auto; }
 /*
  * Reveal-on-scroll.
  *
- * Scoped to html.js, which an inline script in the head sets before first
- * paint. Without scripting the rule never matches and every element is simply
- * visible — the animation can never be the reason content is missing.
+ * The hidden state exists only where scripting can actually undo it. Asking
+ * the browser directly is better than having an inline script set a class:
+ * React 19 hoists script tags out of the component tree, which breaks
+ * hydration, and this needs no script at all. Without scripting the rule never
+ * matches and every element is simply visible — the animation can never be the
+ * reason content is missing.
+ *
+ * IntersectionObserver is present in every browser that supports this query,
+ * and Reveal carries a timeout backstop regardless.
  */
-.js [data-reveal="pending"] {
-  opacity: 0;
-  transform: translate3d(0, 1.5rem, 0);
+@media (scripting: enabled) {
+  [data-reveal="pending"] {
+    opacity: 0;
+    transform: translate3d(0, 1.5rem, 0);
+  }
 }
 
 [data-reveal] {
@@ -214,7 +222,7 @@ html.lenis, html.lenis body { height: auto; }
 @media (prefers-reduced-motion: reduce) {
   .caret { animation: none; }
   .reveal { animation: none; }
-  .js [data-reveal="pending"] { opacity: 1; transform: none; }
+  [data-reveal="pending"] { opacity: 1; transform: none; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;

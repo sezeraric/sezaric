@@ -87,26 +87,24 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
        */
       suppressHydrationWarning
     >
-      <head>
+      <body className="crt min-h-svh">
         {/*
-          Two things, before first paint.
+          Recovery for a stale cached document. Build chunks are content-hashed,
+          so a browser holding older HTML asks for script URLs that no longer
+          exist; they 404, nothing mounts, and the visitor gets a blank page —
+          invisible to error boundaries, because it happens before React runs.
+          One reload fixes it, and a sessionStorage guard makes a second
+          impossible, so a genuinely broken deploy degrades to a flicker rather
+          than a reload loop.
 
-          1. Marks scripting AND IntersectionObserver as available. The
-             scroll-reveal styles hang off this class, so content can never be
-             hidden by an animation that has no way to run.
-
-          2. Recovers from a stale cached document. Build chunks are
-             content-hashed, so a browser holding an old HTML file asks for
-             script URLs that no longer exist; they 404, nothing mounts, and
-             the visitor gets a blank page. That is invisible to error
-             boundaries because it happens before React runs. Catching the
-             resource error and reloading once — guarded by sessionStorage so
-             it can never become a loop — turns it into a flicker instead.
+          `async` is what lets React hoist this into the document head instead
+          of complaining that it cannot order a sync script; on an inline
+          script the attribute has no effect on when it runs.
         */}
         <script
+          async
           dangerouslySetInnerHTML={{
             __html: `
-if ('IntersectionObserver' in window) document.documentElement.classList.add('js');
 window.addEventListener('error', function (e) {
   var el = e.target;
   if (!el || el.tagName !== 'SCRIPT') return;
@@ -115,15 +113,14 @@ window.addEventListener('error', function (e) {
     if (sessionStorage.getItem('stale-bundle-reload')) return;
     sessionStorage.setItem('stale-bundle-reload', '1');
   } catch (err) {
-    return; // no storage means no way to stop a loop, so do nothing
+    return;
   }
   location.reload();
 }, true);
             `.trim(),
           }}
         />
-      </head>
-      <body className="crt min-h-svh">
+
         {children}
         <script
           type="application/ld+json"
