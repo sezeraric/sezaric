@@ -50,7 +50,7 @@ export const en = {
     { text: "Follow the white rabbit.", delay: 700, tone: "accent" },
   ],
 
-  hero: { scroll: "Scroll" },
+  hero: { scroll: "Scroll", followRabbit: "Follow the white rabbit" },
 
   bullets: [
     { label: "ANR", detail: "Main-thread blocks that freeze Android" },
@@ -284,6 +284,7 @@ export const en = {
     cta: "Send a message",
     links: { email: "Email", github: "GitHub", linkedin: "LinkedIn", x: "X" },
     profileLabel: "Profile",
+    rabbitArrived: "You followed it all the way down.",
   },
 
   footer: {

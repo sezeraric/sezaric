@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Dictionary } from "@/i18n";
 import { site } from "@/lib/site";
 import { Terminal } from "./Terminal";
+import { RabbitGlyph } from "./WhiteRabbit";
+import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
 
 export function Hero({ d }: { d: Dictionary }) {
   const [booted, setBooted] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const reduced = usePrefersReducedMotion();
+
+  // Come back if the visitor scrolls up again after following it.
+  useEffect(() => {
+    if (!leaving) return;
+    const t = window.setTimeout(() => setLeaving(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [leaving]);
 
   return (
     <section id="hero" className="relative flex min-h-svh flex-col justify-center">
@@ -57,14 +68,34 @@ export function Hero({ d }: { d: Dictionary }) {
       </div>
 
       <div className="shell relative pb-10" style={{ opacity: booted ? 1 : 0, transition: "opacity 1.2s ease 400ms" }}>
+        {/*
+          The rabbit the boot sequence tells you to follow. It appears the moment
+          that line finishes typing, and following it is the way in: the link is
+          a real anchor, so the smooth-scroll handler takes the page down while
+          the rabbit bounds off ahead.
+        */}
         <a
           href="#bullet-time"
-          className="group inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.25em] text-text-faint transition-colors hover:text-mx"
+          onClick={() => setLeaving(true)}
+          aria-label={d.hero.followRabbit}
+          className="group inline-flex items-center gap-4 font-mono text-[11px] uppercase tracking-[0.25em] text-text-faint transition-colors hover:text-mx"
         >
-          <span className="relative flex h-9 w-5 items-start justify-center rounded-full border border-line-bright pt-1.5">
-            <span className="h-1.5 w-1 animate-bounce rounded-full bg-mx" />
+          <span
+            key={booted ? "in" : "out"}
+            className={`rabbit block h-12 w-12 ${
+              reduced ? "" : leaving ? "rabbit-leave" : booted ? "rabbit-enter" : ""
+            }`}
+          >
+            <span className={`block h-full w-full ${reduced || leaving ? "" : "rabbit-idle"}`}>
+              <RabbitGlyph className="h-full w-full" />
+            </span>
           </span>
-          {d.hero.scroll}
+          <span>
+            {d.hero.followRabbit}
+            <span aria-hidden="true" className="ml-2 inline-block transition-transform group-hover:translate-y-0.5">
+              ↓
+            </span>
+          </span>
         </a>
       </div>
     </section>

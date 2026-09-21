@@ -45,7 +45,7 @@ export const tr: Dictionary = {
     { text: "Beyaz tavşanı takip et.", delay: 700, tone: "accent" },
   ],
 
-  hero: { scroll: "Kaydır" },
+  hero: { scroll: "Kaydır", followRabbit: "Beyaz tavşanı takip et" },
 
   bullets: [
     { label: "ANR", detail: "Android'i donduran ana iş parçacığı kilitleri" },
@@ -279,6 +279,7 @@ export const tr: Dictionary = {
     cta: "Mesaj gönder",
     links: { email: "E-posta", github: "GitHub", linkedin: "LinkedIn", x: "X" },
     profileLabel: "Profil",
+    rabbitArrived: "Sonuna kadar takip ettin.",
   },
 
   footer: {

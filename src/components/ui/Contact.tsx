@@ -2,6 +2,8 @@ import type { Dictionary } from "@/i18n";
 import { site } from "@/lib/site";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./SectionHead";
+import { BendingSpoon } from "./BendingSpoon";
+import { RabbitGlyph } from "./WhiteRabbit";
 
 type Link = { label: string; href: string; value: string };
 
@@ -18,16 +20,37 @@ export function Contact({ d }: { d: Dictionary }) {
   return (
     <section id="contact" className="scroll-mt-24 border-t border-line bg-surface/30 py-24 sm:py-36">
       <div className="shell">
-        <SectionHead eyebrow={d.contact.eyebrow} title={d.contact.title} lead={d.contact.body} />
+        {/* "There is no spoon" — so here is the spoon, bending. */}
+        <div className="flex items-start justify-between gap-6">
+          <SectionHead eyebrow={d.contact.eyebrow} title={d.contact.title} lead={d.contact.body} />
+          <BendingSpoon className="mt-2 h-32 w-16 shrink-0 cursor-pointer sm:h-48 sm:w-24" />
+        </div>
 
         <Reveal delay={120}>
-          <a
-            href={`mailto:${site.email}`}
-            className="group mt-10 inline-flex items-center gap-4 rounded-sm border border-mx-dim/60 bg-mx-deep/30 px-5 py-4 font-mono text-xs uppercase tracking-[0.12em] text-mx transition-all hover:border-mx hover:bg-mx-deep/60 sm:mt-12 sm:px-6 sm:text-sm"
-          >
-            {d.contact.cta}
-            <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
-          </a>
+          <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-4 sm:mt-12">
+            <a
+              href={`mailto:${site.email}`}
+              className="group inline-flex items-center gap-4 rounded-sm border border-mx-dim/60 bg-mx-deep/30 px-5 py-4 font-mono text-xs uppercase tracking-[0.12em] text-mx transition-all hover:border-mx hover:bg-mx-deep/60 sm:px-6 sm:text-sm"
+            >
+              {d.contact.cta}
+              <span className="transition-transform duration-300 group-hover:translate-x-1.5">→</span>
+            </a>
+
+            {/*
+              The rabbit from the top of the page, waiting where it led you.
+              Decorative, so the caption carries the meaning in text.
+            */}
+            <div className="flex items-center gap-3">
+              <span className="rabbit block h-10 w-10">
+                <span className="rabbit-idle block h-full w-full">
+                  <RabbitGlyph className="h-full w-full" />
+                </span>
+              </span>
+              <span className="font-mono text-[11px] leading-snug tracking-[0.08em] text-text-faint">
+                {d.contact.rabbitArrived}
+              </span>
+            </div>
+          </div>
         </Reveal>
 
         <dl className="mt-14 grid gap-px overflow-hidden rounded-sm border border-line bg-line sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">

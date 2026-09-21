@@ -210,6 +210,53 @@ html.lenis, html.lenis body { height: auto; }
   transform: none;
 }
 
+/* ---- the white rabbit --------------------------------------------------- */
+
+.rabbit {
+  filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.35)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6));
+}
+
+/* Drops in with a couple of settling bounces once the boot line is typed. */
+@keyframes rabbit-enter {
+  0%   { opacity: 0; transform: translate3d(0, -28px, 0) scale(0.9); }
+  45%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.04, 0.92); }
+  65%  { transform: translate3d(0, -8px, 0) scale(0.98, 1.03); }
+  82%  { transform: translate3d(0, 0, 0) scale(1.02, 0.97); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* An occasional small hop, with a squash on landing. */
+@keyframes rabbit-idle {
+  0%, 70%, 100% { transform: none; }
+  76%  { transform: translate3d(0, -9px, 0) scale(0.97, 1.04); }
+  84%  { transform: translate3d(0, 0, 0) scale(1.05, 0.93); }
+  90%  { transform: none; }
+}
+
+@keyframes rabbit-ear {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  92%  { transform: rotate(-14deg); }
+  96%  { transform: rotate(6deg); }
+}
+
+/* Leaving: bounds off ahead of you, down the page. */
+@keyframes rabbit-leave {
+  0%   { opacity: 1; transform: none; }
+  35%  { transform: translate3d(14px, -14px, 0) scale(1.02); }
+  70%  { opacity: 1; transform: translate3d(34px, 6px, 0) scale(0.92); }
+  100% { opacity: 0; transform: translate3d(60px, 30px, 0) scale(0.7); }
+}
+
+.rabbit-enter { animation: rabbit-enter 0.9s cubic-bezier(.2, .8, .2, 1) both; }
+.rabbit-idle  { animation: rabbit-idle 3.4s ease-in-out infinite; }
+.rabbit-leave { animation: rabbit-leave 0.7s ease-in forwards; }
+
+.rabbit-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: rabbit-ear 4.2s ease-in-out infinite;
+}
+
 /* ---- the pills -------------------------------------------------------- */
 
 /* A slow bob with a little roll, so the capsule catches the light as it moves. */
