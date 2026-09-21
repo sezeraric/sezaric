@@ -185,6 +185,24 @@ export const en = {
     name: "MyGarage Global",
     kind: "React Native · iOS & Android",
     stackLabel: "// stack",
+    shotsLabel: "// screens",
+    shots: [
+      {
+        src: "/mygarage/garage.jpg",
+        alt: "The MyGarage profile screen: member status, follower counts, favourite businesses and a list of the owner's vehicles.",
+        caption: "Your garage: vehicles, membership, and the door into business mode.",
+      },
+      {
+        src: "/mygarage/vehicle.jpg",
+        alt: "A single vehicle in MyGarage, with reminders, a digital glovebox, fuel and expense tracking, mileage history and maintenance records.",
+        caption: "One vehicle: reminders, documents, fuel, mileage and service history in one place.",
+      },
+      {
+        src: "/mygarage/map.jpg",
+        alt: "The MyGarage nearby-services map, showing a live map of İstanbul with category filters and a ranked list of car services.",
+        caption: "Map-based discovery across two hundred nearby services.",
+      },
+    ],
     summary:
       "A social and commerce platform for car and motorcycle owners: a digital garage for your vehicles, a feed and forum for the community, maintenance and expense tracking, drive recording, realtime messaging, map-based service discovery and a marketplace for shops.",
     stats: [

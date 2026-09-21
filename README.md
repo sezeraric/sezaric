@@ -86,8 +86,6 @@ Everything readable is in the DOM above the backdrop, which is `aria-hidden` and
 
 ## Still to do
 
-- `caseStudy.shots` is empty. Drop MyGarage screenshots into `public/mygarage/`
-  and list them there.
-- `profile.linkedin` is percent-encoded to survive the Turkish character in the
+- `site.linkedin` is percent-encoded to survive the Turkish character in the
   handle — worth clicking once to confirm it resolves.
 - The phone number from the CV is deliberately not on the site.

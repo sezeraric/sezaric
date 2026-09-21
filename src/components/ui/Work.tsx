@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Dictionary } from "@/i18n";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./SectionHead";
@@ -43,8 +44,38 @@ export function Work({ d }: { d: Dictionary }) {
           ))}
         </div>
 
+        {/*
+          Real screens from the shipped app. Captured on device rather than
+          mocked up, and cropped so that no other user's name or face is on a
+          public page.
+        */}
+        <div className="mt-12 sm:mt-16">
+          <Reveal>
+            <p className="eyebrow">{c.shotsLabel}</p>
+          </Reveal>
+          <ul className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-5">
+            {c.shots.map((shot, i) => (
+              <Reveal key={shot.src} as="li" delay={i * 80}>
+                <figure className="h-full">
+                  <Image
+                    src={shot.src}
+                    alt={shot.alt}
+                    width={720}
+                    height={1565}
+                    sizes="(max-width: 640px) 70vw, 20rem"
+                    className="mx-auto w-[70%] rounded-xl border border-line sm:w-full"
+                  />
+                  <figcaption className="mt-3 text-center font-mono text-[11px] leading-relaxed text-text-faint sm:text-left">
+                    {shot.caption}
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
+
         <Reveal delay={80}>
-          <div className="mt-12">
+          <div className="mt-14">
             <p className="eyebrow">{c.stackLabel}</p>
             <ul className="mt-4 flex flex-wrap gap-2">
               {c.stack.map((tech) => (

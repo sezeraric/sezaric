@@ -180,6 +180,24 @@ export const tr: Dictionary = {
     name: "MyGarage Global",
     kind: "React Native · iOS & Android",
     stackLabel: "// teknolojiler",
+    shotsLabel: "// ekranlar",
+    shots: [
+      {
+        src: "/mygarage/garage.jpg",
+        alt: "MyGarage profil ekranı: üyelik durumu, takipçi sayıları, favori işletmeler ve kullanıcının araç listesi.",
+        caption: "Garajın: araçlar, üyelik ve işletme moduna açılan kapı.",
+      },
+      {
+        src: "/mygarage/vehicle.jpg",
+        alt: "MyGarage'da tek bir araç: hatırlatıcılar, dijital torpido, yakıt ve masraf takibi, kilometre geçmişi ve bakım kayıtları.",
+        caption: "Tek araç: hatırlatıcı, belge, yakıt, kilometre ve servis geçmişi tek yerde.",
+      },
+      {
+        src: "/mygarage/map.jpg",
+        alt: "MyGarage yakındaki servisler haritası: İstanbul'un canlı haritası, kategori filtreleri ve sıralanmış oto servis listesi.",
+        caption: "Harita üzerinden keşif: iki yüz yakın servis.",
+      },
+    ],
     summary:
       "Otomobil ve motosiklet sahipleri için sosyal ve ticari bir platform: araçların için dijital garaj, topluluk için akış ve forum, bakım ve masraf takibi, sürüş kaydı, gerçek zamanlı mesajlaşma, harita tabanlı servis keşfi ve dükkanlar için pazar yeri.",
     stats: [
