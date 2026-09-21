@@ -24,6 +24,12 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       >
         Try again
       </button>
+      {/*
+        A plain anchor on purpose, not next/link. This boundary exists because
+        the client runtime already failed; routing through it could fail the
+        same way. A full document load is the recovery.
+      */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/en"
         className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-faint underline-offset-4 hover:text-text-dim hover:underline"
