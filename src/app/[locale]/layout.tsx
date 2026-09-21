@@ -89,14 +89,37 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     >
       <head>
         {/*
-          Marks scripting AND IntersectionObserver as available, before first
-          paint. The scroll-reveal styles hang off this class, so content can
-          never be hidden by an animation that has no way to run.
+          Two things, before first paint.
+
+          1. Marks scripting AND IntersectionObserver as available. The
+             scroll-reveal styles hang off this class, so content can never be
+             hidden by an animation that has no way to run.
+
+          2. Recovers from a stale cached document. Build chunks are
+             content-hashed, so a browser holding an old HTML file asks for
+             script URLs that no longer exist; they 404, nothing mounts, and
+             the visitor gets a blank page. That is invisible to error
+             boundaries because it happens before React runs. Catching the
+             resource error and reloading once — guarded by sessionStorage so
+             it can never become a loop — turns it into a flicker instead.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html:
-              "if ('IntersectionObserver' in window) document.documentElement.classList.add('js')",
+            __html: `
+if ('IntersectionObserver' in window) document.documentElement.classList.add('js');
+window.addEventListener('error', function (e) {
+  var el = e.target;
+  if (!el || el.tagName !== 'SCRIPT') return;
+  if (!el.src || el.src.indexOf('/_next/static/') === -1) return;
+  try {
+    if (sessionStorage.getItem('stale-bundle-reload')) return;
+    sessionStorage.setItem('stale-bundle-reload', '1');
+  } catch (err) {
+    return; // no storage means no way to stop a loop, so do nothing
+  }
+  location.reload();
+}, true);
+            `.trim(),
           }}
         />
       </head>
