@@ -52,6 +52,25 @@ export function ScrollVideo({
     const onMeta = () => {
       duration = video.duration || 0;
       readyRef.current?.(true);
+      prime();
+    };
+
+    /*
+     * Mobile browsers will not paint a frame from a video that has never
+     * played: seeking a freshly-loaded element leaves it showing the poster.
+     * A muted, inline play immediately followed by pause decodes the first
+     * frame and unblocks every seek after it. It is allowed without a gesture
+     * precisely because the element is muted and playsInline.
+     */
+    const prime = () => {
+      const p = video.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => video.pause()).catch(() => {
+          // Blocked by policy: scrubbing still works wherever seeking paints.
+        });
+      } else {
+        video.pause();
+      }
     };
     const onSeeked = () => { seeking = false; };
     const onError = () => { setFailed(true); readyRef.current?.(false); };
@@ -59,6 +78,10 @@ export function ScrollVideo({
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("error", onError);
+
+    // Some mobile browsers ignore preload="auto" until asked explicitly.
+    if (video.readyState === 0) video.load();
+    else onMeta();
 
     const loop = () => {
       raf = requestAnimationFrame(loop);

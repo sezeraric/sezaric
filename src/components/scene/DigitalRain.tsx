@@ -30,9 +30,9 @@ const fragment = /* glsl */ `
 
   uniform sampler2D uAtlas;
   uniform vec2  uAtlasGrid;   // atlas columns, rows
-  uniform vec2  uResolution;
+  uniform vec2  uResolution;  // drawing-buffer size, device pixels
   uniform float uTime;        // already time-dilated on the CPU
-  uniform float uDensity;     // >1 = smaller cells = more columns
+  uniform float uCellPx;      // glyph cell size, device pixels
   uniform float uIntensity;   // global fade, keeps body copy readable
   uniform vec3  uColor;
   uniform vec3  uHeadColor;
@@ -54,9 +54,9 @@ const fragment = /* glsl */ `
     // y increasing downward, which is how rain reads.
     vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
 
-    // Cells are a fixed pixel size, so density is resolution independent.
-    float cellPx = 30.0 / uDensity;
-    vec2 grid = max(uResolution / cellPx, vec2(1.0));
+    // Cell size arrives in device pixels, derived on the CPU from a CSS-pixel
+    // target — see the comment on GLYPH_CSS_PX.
+    vec2 grid = max(uResolution / uCellPx, vec2(1.0));
     vec2 gv = uv * grid;
     vec2 id = floor(gv);
     vec2 f  = fract(gv);
@@ -120,11 +120,23 @@ export type RainHandle = {
   setTimeScale: (v: number) => void;
 };
 
+/**
+ * Glyph size in CSS pixels.
+ *
+ * This has to be a CSS measurement, not a device-pixel one. Deriving it from
+ * device pixels couples it to the renderer's DPR: on a phone rendering at
+ * DPR 1, a device-pixel cell size produced about six enormous columns across
+ * the screen instead of a field. Narrow viewports get a slightly smaller cell
+ * so the column count stays reasonable rather than scaling down with the width.
+ */
+const GLYPH_CSS_PX = { narrow: 13, wide: 17 };
+
 export function DigitalRain({
   density = 1,
   intensityRef,
   timeScaleRef,
 }: {
+  /** Fine adjustment only; it must not drive the glyph size. */
   density?: number;
   /** Read every frame. 0 hides the rain, 1 is full strength. */
   intensityRef: React.RefObject<number>;
@@ -147,13 +159,13 @@ export function DigitalRain({
         uAtlasGrid: { value: new THREE.Vector2(ATLAS_GRID.cols, ATLAS_GRID.rows) },
         uResolution: { value: new THREE.Vector2(1, 1) },
         uTime: { value: 0 },
-        uDensity: { value: density },
+        uCellPx: { value: 17 },
         uIntensity: { value: 0 },
         uColor: { value: new THREE.Color("#00e844") },
         uHeadColor: { value: new THREE.Color("#c9ffd8") },
       },
     });
-  }, [density]);
+  }, []);
 
   useFrame((state, delta) => {
     const u = material.uniforms;
@@ -162,10 +174,12 @@ export function DigitalRain({
     dilated.current += dt * (timeScaleRef.current ?? 1);
     u.uTime.value = dilated.current;
     u.uIntensity.value += ((intensityRef.current ?? 1) - u.uIntensity.value) * Math.min(1, dt * 6);
-    u.uResolution.value.set(
-      state.size.width * state.viewport.dpr,
-      state.size.height * state.viewport.dpr,
-    );
+    const dpr = state.viewport.dpr;
+    u.uResolution.value.set(state.size.width * dpr, state.size.height * dpr);
+
+    // CSS-pixel target converted to the drawing buffer's scale.
+    const css = state.size.width < 768 ? GLYPH_CSS_PX.narrow : GLYPH_CSS_PX.wide;
+    u.uCellPx.value = (css / Math.max(density, 0.5)) * dpr;
   });
 
   return (
