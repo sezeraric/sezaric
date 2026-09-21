@@ -31,6 +31,8 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
   const state = useRef<ShowcaseState>({ progress: 0 });
   const [index, setIndex] = useState(0);
   const [near, setNear] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [crashed, setCrashed] = useState(false);
   const reduced = usePrefersReducedMotion();
   const isClient = useIsClient();
   const [caps] = useState(() => (typeof window === "undefined" ? null : detect()));
@@ -48,24 +50,44 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
    * this from `window` during render instead would mean the server sends the
    * grid and the client immediately renders a canvas, which is a hydration
    * mismatch — React throws the tree away and the section goes blank.
+   *
+   * Also gated on the high tier, which in practice means "not a phone". This
+   * scene would be the page's SECOND WebGL context, on top of the backdrop,
+   * a video and a 40k-triangle model. On iOS that combination pushes the tab
+   * past its memory budget and Safari kills and reloads it — the site appears
+   * to restart itself while you are reading. A phone gets the grid, which
+   * carries the same information and costs nothing.
    */
-  const use3d = isClient && !reduced && webgl && caps !== null;
+  const use3d = isClient && !reduced && webgl && caps?.tier === "high" && !crashed;
 
   // Only pay for the model and the textures once the section is close.
   useEffect(() => {
     const el = section.current;
     if (!el || !use3d) return;
-    const io = new IntersectionObserver(
+    const preload = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
           setNear(true);
-          io.disconnect();
+          preload.disconnect();
         }
       },
       { rootMargin: "60% 0px" },
     );
-    io.observe(el);
-    return () => io.disconnect();
+    preload.observe(el);
+
+    // A mounted canvas keeps drawing forever unless told otherwise. Pausing
+    // the frame loop while the section is off screen is most of the cost of
+    // this scene on a page the visitor scrolls straight past.
+    const onScreen = new IntersectionObserver(
+      ([e]) => setVisible(e.isIntersecting),
+      { rootMargin: "10% 0px" },
+    );
+    onScreen.observe(el);
+
+    return () => {
+      preload.disconnect();
+      onScreen.disconnect();
+    };
   }, [use3d]);
 
   // Scroll drives the scene through a ref, and the caption through a coarse
@@ -129,9 +151,23 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
             <SceneBoundary>
               <Canvas
                 dpr={caps?.dpr ?? [1, 2]}
+                frameloop={visible ? "always" : "never"}
                 gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
                 camera={{ fov: 34, position: [0, 0.15, 5.6], near: 0.1, far: 50 }}
                 className="!absolute inset-0"
+                onCreated={({ gl }) => {
+                  gl.domElement.addEventListener(
+                    "webglcontextlost",
+                    (e) => {
+                      // Losing the context here means the device is out of
+                      // budget. Retrying would just lose it again, so hand the
+                      // section back to the static grid for good.
+                      e.preventDefault();
+                      setCrashed(true);
+                    },
+                    { once: true },
+                  );
+                }}
               >
                 <CaseStudyScene shots={shots.map((s) => s.src)} stateRef={state} />
               </Canvas>
