@@ -22,8 +22,8 @@ export type Phase = {
   timeScale: number;
   /** 0..1 — when the engineering-problem log is on screen. */
   log: number;
-  /** 0..1 — video and scene fade at the very edges of the section. */
-  presence: number;
+  /** 0..1 — how far the section has risen into view before the pin starts. */
+  entered: number;
 };
 
 export function phase(p: number): Phase {
@@ -33,8 +33,22 @@ export function phase(p: number): Phase {
     // 0.12 rather than 0, so the rain still drifts while the shot holds.
     timeScale: 1 - 0.88 * freeze,
     log: smoothstep(p, 0.28, 0.4) * (1 - smoothstep(p, 0.74, 0.86)),
-    presence: smoothstep(p, 0, 0.04) * (1 - smoothstep(p, 0.96, 1)),
+    entered: 0,
   };
+}
+
+/**
+ * How visible the bullet-time shot is.
+ *
+ * Driven by the section's approach rather than by its pinned progress: the
+ * shot has to already be on screen when the section arrives, or the visitor
+ * scrolls past the hero into a stretch of black with nothing to read.
+ * It only fades back out at the very end of the pin.
+ */
+export function backdropPresence(entry: number, p: number): number {
+  const arriving = smoothstep(entry, 0.12, 0.5);
+  const leaving = 1 - smoothstep(p, 0.96, 1);
+  return Math.min(arriving, leaving);
 }
 
 /**
@@ -44,8 +58,10 @@ export function phase(p: number): Phase {
  * two competing green fields just read as noise — and drops further once the
  * page turns into body copy that has to be readable.
  */
-export function rainIntensity(bulletTime: number): number {
-  if (bulletTime >= 0.999) return 0.16; // past the scene
-  if (bulletTime > 0.001) return 0.3;   // over the video
-  return 0.95;                          // hero
+export function rainIntensity(entry: number, bulletTime: number): number {
+  if (bulletTime >= 0.999) return 0.16; // past the scene: a quiet backdrop
+  // Fade the rain down as the shot arrives, not the moment the pin starts —
+  // otherwise it stays at full strength over the clip during the approach.
+  const over = backdropPresence(entry, bulletTime);
+  return 0.95 - 0.65 * over;
 }

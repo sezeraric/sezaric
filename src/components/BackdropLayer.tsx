@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { scroll } from "@/lib/scroll";
-import { phase } from "@/lib/curves";
+import { backdropPresence } from "@/lib/curves";
 import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
 import { useIsNarrow } from "@/lib/useViewport";
 import { ScrollVideo } from "./ui/ScrollVideo";
@@ -41,7 +41,7 @@ export default function BackdropLayer() {
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const el = shotRef.current;
-      if (el) el.style.opacity = String(phase(scroll.bulletTime).presence);
+      if (el) el.style.opacity = String(backdropPresence(scroll.bulletEntry, scroll.bulletTime));
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);

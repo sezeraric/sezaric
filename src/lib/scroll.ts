@@ -14,6 +14,15 @@ export type ScrollState = {
   velocity: number;
   /** 0..1 through the pinned bullet-time section. 0 before it, 1 after it. */
   bulletTime: number;
+  /**
+   * 0..1 as the bullet-time section rises into the viewport, reaching 1 exactly
+   * when the pin begins.
+   *
+   * Separate from `bulletTime` because that value is still 0 for the whole
+   * approach, which left the shot invisible while the section was already on
+   * screen — a stretch of black where nothing explained itself.
+   */
+  bulletEntry: number;
   /** 0..1 as the hero scrolls out of view. */
   heroOut: number;
   /** Viewport height, cached. */
@@ -25,6 +34,7 @@ export const scroll: ScrollState = {
   progress: 0,
   velocity: 0,
   bulletTime: 0,
+  bulletEntry: 0,
   heroOut: 0,
   vh: 1,
 };
@@ -67,5 +77,11 @@ export function measure() {
   }
 
   const bt = document.getElementById(SECTION.bulletTime);
-  if (bt) scroll.bulletTime = pinnedProgress(bt, vh);
+  if (bt) {
+    const rect = bt.getBoundingClientRect();
+    scroll.bulletTime = pinnedProgress(bt, vh);
+    // 0 when the section's top is a full viewport below, 1 when it reaches the
+    // top of the screen and the pin takes over.
+    scroll.bulletEntry = clamp01(1 - rect.top / Math.max(vh, 1));
+  }
 }

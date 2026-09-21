@@ -21,8 +21,21 @@ try {
     { stdio: "inherit" },
   );
 
-  const { phase, rainIntensity } = await import(pathToFileURL(out).href);
+  const { phase, rainIntensity, backdropPresence } = await import(pathToFileURL(out).href);
 
+  // The approach: section rising into view, pin not started yet (p is still 0).
+  const approach = [];
+  for (const entry of [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1]) {
+    approach.push({
+      entry,
+      shotOpacity: +backdropPresence(entry, 0).toFixed(2),
+      rain: +rainIntensity(entry, 0).toFixed(2),
+    });
+  }
+  console.log("Approach (before the pin starts):");
+  console.table(approach);
+
+  // The pin itself.
   const rows = [];
   for (const p of [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1]) {
     const c = phase(p);
@@ -31,19 +44,29 @@ try {
       freeze: +c.freeze.toFixed(2),
       timeScale: +c.timeScale.toFixed(2),
       log: +c.log.toFixed(2),
-      presence: +c.presence.toFixed(2),
-      rain: rainIntensity(p),
+      shotOpacity: +backdropPresence(1, p).toFixed(2),
+      rain: +rainIntensity(1, p).toFixed(2),
     });
   }
+  console.log("Pinned:");
   console.table(rows);
 
   const fail = [];
   const a = phase(0);
   const b = phase(1);
-  if (a.presence > 1e-3) fail.push("shot visible at p=0");
-  if (b.presence > 1e-3) fail.push(`shot visible at p=1 (${b.presence})`);
   if (a.freeze > 1e-3 || b.freeze > 1e-3) fail.push("time dilated at a section edge");
   if (a.log > 1e-3 || b.log > 1e-3) fail.push("problem log showing at a section edge");
+
+  // The point of the approach: the shot must already be on screen before the
+  // pin begins, or the visitor scrolls into a stretch of black.
+  if (backdropPresence(0, 0) > 1e-3) fail.push("shot visible before the section approaches");
+  if (backdropPresence(0.5, 0) < 0.45) {
+    fail.push(`shot still faint halfway through the approach (${backdropPresence(0.5, 0)})`);
+  }
+  if (backdropPresence(1, 0) < 0.99) {
+    fail.push(`shot not fully in by the time the pin starts (${backdropPresence(1, 0)})`);
+  }
+  if (backdropPresence(1, 1) > 1e-3) fail.push("shot still visible after the pin ends");
 
   // The rain must never fully stop: a frozen field reads as a broken page.
   for (let i = 0; i <= 400; i++) {
@@ -52,8 +75,9 @@ try {
     if (t > 1.0001) { fail.push(`rain sped up past normal at p=${(i / 400).toFixed(3)}`); break; }
   }
 
-  // Body copy further down the page must never sit under a bright rain field.
-  if (rainIntensity(1) > 0.2) fail.push("rain too strong over body copy");
+  // Rain has to get out of the way of the clip, and of body copy later.
+  if (rainIntensity(1, 0.5) > 0.4) fail.push("rain too strong over the clip");
+  if (rainIntensity(1, 1) > 0.2) fail.push("rain too strong over body copy");
 
   if (fail.length) {
     console.error("FAIL:\n - " + fail.join("\n - "));

@@ -10,7 +10,17 @@ export function Hero({ d }: { d: Dictionary }) {
 
   return (
     <section id="hero" className="relative flex min-h-svh flex-col justify-center">
-      <div className="shell w-full py-24 sm:py-28">
+      {/*
+        The bullet-time shot now fades in while the hero's tail is still on
+        screen, so that the section never arrives over a stretch of black. This
+        keeps the copy readable across that overlap.
+      */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-ink via-ink/70 to-transparent"
+        aria-hidden="true"
+      />
+
+      <div className="shell relative w-full py-24 sm:py-28">
         <div className="max-w-2xl">
           <div className="hairline rounded-sm bg-ink/70 p-4 backdrop-blur-[2px] sm:p-6">
             <div className="mb-4 flex items-center gap-2 border-b border-line pb-3">
@@ -46,7 +56,7 @@ export function Hero({ d }: { d: Dictionary }) {
         </div>
       </div>
 
-      <div className="shell pb-10" style={{ opacity: booted ? 1 : 0, transition: "opacity 1.2s ease 400ms" }}>
+      <div className="shell relative pb-10" style={{ opacity: booted ? 1 : 0, transition: "opacity 1.2s ease 400ms" }}>
         <a
           href="#bullet-time"
           className="group inline-flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.25em] text-text-faint transition-colors hover:text-mx"

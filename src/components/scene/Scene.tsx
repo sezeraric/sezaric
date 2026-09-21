@@ -22,7 +22,7 @@ export function Scene({ caps }: { caps: Capabilities }) {
     const p = scroll.bulletTime;
     const c = phase(p);
     rainTimeScale.current = c.timeScale;
-    rainIntensityRef.current = rainIntensity(p);
+    rainIntensityRef.current = rainIntensity(scroll.bulletEntry, p);
   });
 
   return (
