@@ -77,6 +77,15 @@ export const en = {
     eyebrow: "// the choice",
     title: "Two ways to build.",
     whoami: "// whoami",
+    choose: {
+      prompt: "Pick one. There's no undo.",
+      blueResponse:
+        "Fine. Close the tab and keep shipping on hope. The crash reports will be waiting.",
+      redResponse: "Good. Let's see how deep the stack trace goes.",
+      tryOther: "Take the red one instead",
+      takeBlue: "Take the blue pill",
+      takeRed: "Take the red pill",
+    },
     blue: {
       pill: "Blue pill",
       heading: "Ship it and hope.",

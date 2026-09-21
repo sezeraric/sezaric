@@ -210,6 +210,67 @@ html.lenis, html.lenis body { height: auto; }
   transform: none;
 }
 
+/* ---- the pills -------------------------------------------------------- */
+
+/* A slow bob with a little roll, so the capsule catches the light as it moves. */
+@keyframes pill-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); }
+  50%      { transform: translate3d(0, -10px, 0) rotate(2deg); }
+}
+
+.pill-float {
+  animation: pill-float 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Offset phase, so the two pills never bob in lockstep like a screensaver. */
+.pill-float-b {
+  animation-duration: 6.3s;
+  animation-delay: -2.1s;
+}
+
+/*
+ * The wake-up flash when the red pill is taken: a full-screen RGB split with
+ * horizontal slices tearing sideways, gone in half a second. Pure CSS, fixed
+ * over everything, and never rendered at all under reduced motion.
+ */
+@keyframes glitch-split {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  8%   { opacity: 1; transform: translate3d(-6px, 0, 0); }
+  22%  { transform: translate3d(8px, 0, 0); }
+  38%  { transform: translate3d(-3px, 0, 0); }
+  55%  { opacity: 0.9; transform: translate3d(4px, 0, 0); }
+  100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes glitch-slices {
+  0%   { clip-path: inset(10% 0 78% 0); }
+  25%  { clip-path: inset(62% 0 18% 0); }
+  50%  { clip-path: inset(34% 0 44% 0); }
+  75%  { clip-path: inset(80% 0 6% 0); }
+  100% { clip-path: inset(22% 0 60% 0); }
+}
+
+.glitch-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 0, 60, 0.28), transparent 40%, transparent 60%, rgba(0, 255, 120, 0.28)),
+    repeating-linear-gradient(0deg, rgba(0, 255, 65, 0.12) 0 2px, transparent 2px 5px);
+  mix-blend-mode: screen;
+  animation: glitch-split 0.52s steps(12, end) forwards;
+}
+
+.glitch-flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 255, 65, 0.22);
+  animation: glitch-slices 0.52s steps(6, end) forwards;
+}
+
 @keyframes reveal-up {
   from { opacity: 0; transform: translate3d(0, 1.25rem, 0); }
   to { opacity: 1; transform: none; }

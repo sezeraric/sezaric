@@ -72,6 +72,15 @@ export const tr: Dictionary = {
     eyebrow: "// seçim",
     title: "İki türlü yazılım yapılır.",
     whoami: "// whoami",
+    choose: {
+      prompt: "Birini seç. Geri alma yok.",
+      blueResponse:
+        "Peki. Sekmeyi kapat, umutla ship etmeye devam et. Çökme raporları seni bekliyor olacak.",
+      redResponse: "Güzel. Bakalım stack trace ne kadar derine iniyor.",
+      tryOther: "Kırmızıyı al",
+      takeBlue: "Mavi hapı al",
+      takeRed: "Kırmızı hapı al",
+    },
     blue: {
       pill: "Mavi hap",
       heading: "Gönder, en iyisini um.",

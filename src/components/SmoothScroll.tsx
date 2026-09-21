@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
 import { measure, scroll } from "@/lib/scroll";
+import { setLenis } from "@/lib/smoothScroll";
 
 /**
  * Lenis smooth scrolling, wired into the module-level scroll state.
@@ -38,6 +39,8 @@ export default function SmoothScroll() {
       touchMultiplier: 1.6,
       wheelMultiplier: 1,
     });
+
+    setLenis(lenis);
 
     lenis.on("scroll", (e: { scroll: number; velocity: number }) => {
       scroll.y = e.scroll;
@@ -77,6 +80,7 @@ export default function SmoothScroll() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("click", onClick);
+      setLenis(null);
       lenis.destroy();
     };
   }, []);
