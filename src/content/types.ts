@@ -16,7 +16,7 @@ export type Block =
   | { type: "image"; src: string; alt: string; caption?: string }
   | { type: "figure"; chart: ChartId; caption?: string };
 
-export type ChartId = "bubble-shape" | "leftovers";
+export type ChartId = "bubble-shape" | "leftovers" | "bullet-rig";
 
 export type PostBody = {
   title: string;

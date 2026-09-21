@@ -300,6 +300,14 @@ export const en = {
     publishedOn: "Published",
     alsoIn: "Also in",
     charts: {
+      bulletRig: {
+        description:
+          "Top-down view of the bullet-time rig: an arc of still cameras around the actor, with a motion-picture camera at each end, and the path the virtual camera appears to travel.",
+        stills: "~120 still cameras",
+        motion: "motion camera",
+        subject: "actor",
+        path: "virtual camera path",
+      },
       bubbleShape: {
         axis: "attention and money over time",
         description:

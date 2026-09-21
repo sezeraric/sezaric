@@ -1,7 +1,7 @@
 import Image from "next/image";
 import type { Block, ChartId } from "@/content/types";
 import type { Dictionary } from "@/i18n";
-import { BubbleShape, Leftovers } from "./Charts";
+import { BubbleShape, BulletRig, Leftovers } from "./Charts";
 
 /**
  * Renders a post's blocks.
@@ -28,6 +28,7 @@ function Rich({ text }: { text: string }) {
 
 function Figure({ chart, d }: { chart: ChartId; d: Dictionary }) {
   if (chart === "bubble-shape") return <BubbleShape d={d} />;
+  if (chart === "bullet-rig") return <BulletRig d={d} />;
   return <Leftovers d={d} />;
 }
 

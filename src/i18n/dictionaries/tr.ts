@@ -294,6 +294,14 @@ export const tr: Dictionary = {
     publishedOn: "Yayın",
     alsoIn: "Şu dilde de var",
     charts: {
+      bulletRig: {
+        description:
+          "Bullet-time düzeneğinin üstten görünümü: oyuncunun etrafında bir yay boyunca dizilmiş fotoğraf makineleri, iki ucunda birer hareket kamerası ve sanal kameranın izlediği yol.",
+        stills: "~120 fotoğraf makinesi",
+        motion: "hareket kamerası",
+        subject: "oyuncu",
+        path: "sanal kamera yolu",
+      },
       bubbleShape: {
         axis: "zamana karşı ilgi ve para",
         description:

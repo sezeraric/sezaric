@@ -106,3 +106,97 @@ export function Leftovers({ d }: { d: Dictionary }) {
     </div>
   );
 }
+
+/**
+ * Top-down diagram of the bullet-time rig. A diagram of a real setup, not a
+ * measurement: sources put the still-camera count at around 120, so the label
+ * says "~120" and the dots are drawn as a representative arc, not one per
+ * camera.
+ */
+export function BulletRig({ d }: { d: Dictionary }) {
+  const c = d.blog.charts.bulletRig;
+  const cx = 250;
+  const cy = 210;
+  const r = 150;
+
+  // A 200-degree arc in front of the actor.
+  const count = 40;
+  const start = Math.PI * 0.95;
+  const end = Math.PI * 2.05;
+  const dots = Array.from({ length: count }, (_, i) => {
+    const a = start + ((end - start) * i) / (count - 1);
+    return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+  });
+  const first = dots[0];
+  const last = dots[dots.length - 1];
+
+  // The virtual camera travels along the same arc, a little further out.
+  const pr = r + 26;
+  const arc = (rad: number) =>
+    `M ${cx + Math.cos(start) * rad} ${cy + Math.sin(start) * rad} ` +
+    `A ${rad} ${rad} 0 1 1 ${cx + Math.cos(end) * rad} ${cy + Math.sin(end) * rad}`;
+
+  return (
+    <svg
+      viewBox="0 0 500 300"
+      className="w-full"
+      role="img"
+      aria-labelledby="bullet-rig-title bullet-rig-desc"
+    >
+      <title id="bullet-rig-title">{c.stills}</title>
+      <desc id="bullet-rig-desc">{c.description}</desc>
+
+      <defs>
+        <marker id="rig-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-mx-dim)" />
+        </marker>
+      </defs>
+
+      {/* The path the virtual camera appears to take. */}
+      <path
+        d={arc(pr)}
+        fill="none"
+        stroke="var(--color-mx-dim)"
+        strokeWidth="1"
+        strokeDasharray="3 5"
+        markerEnd="url(#rig-arrow)"
+      />
+
+      {/* Still cameras. */}
+      {dots.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="2.6" fill="var(--color-mx)" opacity={0.85} />
+      ))}
+
+      {/* Motion cameras at each end. */}
+      {[first, last].map((p, i) => (
+        <rect
+          key={i}
+          x={p.x - 7}
+          y={p.y - 7}
+          width="14"
+          height="14"
+          rx="2"
+          fill="none"
+          stroke="var(--color-text-dim)"
+          strokeWidth="1.5"
+        />
+      ))}
+
+      {/* The actor. */}
+      <circle cx={cx} cy={cy} r="11" fill="var(--color-surface-2)" stroke="var(--color-text-dim)" strokeWidth="1.5" />
+
+      {/* Direct labels in text tokens, never in the accent. */}
+      <g className="fill-[var(--color-text-faint)] font-mono" fontSize="10" letterSpacing="0.06em">
+        <text x={cx} y={cy + 30} textAnchor="middle">{c.subject}</text>
+        {/* Inside the arc of stills, where there is room, so it never sits on
+            the dashed path. */}
+        <text x={cx} y={cy - r + 24} textAnchor="middle" className="fill-[var(--color-text-dim)]">{c.stills}</text>
+        <text x={first.x - 4} y={first.y + 26} textAnchor="middle">{c.motion}</text>
+        <text x={last.x + 4} y={last.y + 26} textAnchor="middle">{c.motion}</text>
+        {/* Above the dashed path it names, centred, so a long translation has
+            the full width rather than running off the right edge. */}
+        <text x={cx} y={cy - pr - 10} textAnchor="middle">{c.path}</text>
+      </g>
+    </svg>
+  );
+}
