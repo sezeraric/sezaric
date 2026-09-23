@@ -22,6 +22,8 @@ import { SceneBoundary } from "./SceneBoundary";
  */
 
 const SceneCanvas = dynamic(() => import("./scene/SceneCanvas"), { ssr: false });
+const WeaveLayer = dynamic(() => import("./WeaveLayer"), { ssr: false });
+const WebThreads = dynamic(() => import("./WebThreads"), { ssr: false });
 
 const DESKTOP_SRC = "/bullet-time.mp4";
 const MOBILE_SRC = "/bullet-time-mobile.mp4";
@@ -61,6 +63,13 @@ export default function BackdropLayer() {
 
   return (
     <div className="pointer-events-none fixed inset-0 -z-10" aria-hidden="true">
+      {/*
+        The page colour, repeated inside this layer. The layer is its own
+        stacking context, so anything blended in it (the weave clip) only sees
+        what is in here — without this the clip's black blended with nothing
+        and showed as a black rectangle over the page.
+      */}
+      <div className="absolute inset-0 bg-ink" />
       <div ref={shotRef} className="absolute inset-0" style={{ opacity: 0, visibility: "hidden" }}>
         {reduced ? (
           // Reduced motion: hold a single frame rather than scrubbing.
@@ -80,6 +89,11 @@ export default function BackdropLayer() {
       <SceneBoundary>
         <SceneCanvas />
       </SceneBoundary>
+
+      {/* Over the rain, so it is the rain that steps back for the figure. */}
+      <WeaveLayer />
+      {/* Over the clip: the cards' threads land on the figure. */}
+      <WebThreads />
     </div>
   );
 }

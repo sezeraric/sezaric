@@ -9,6 +9,7 @@ import { BulletTimeSection } from "@/components/ui/BulletTimeSection";
 import { About } from "@/components/ui/About";
 import { Skills } from "@/components/ui/Skills";
 import { Experience } from "@/components/ui/Experience";
+import { Becoming } from "@/components/ui/Becoming";
 import { Work } from "@/components/ui/Work";
 import { Projects } from "@/components/ui/Projects";
 import { AI } from "@/components/ui/AI";
@@ -45,7 +46,15 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
         <div className="relative bg-ink/92">
           <About d={d} />
           <Skills d={d} />
-          <Experience d={d} />
+        </div>
+        {/*
+          No cover here: the experience section weaves the figure in the
+          backdrop, and the reveal after it is nothing but that figure. Their
+          copy carries its own panels instead.
+        */}
+        <Experience d={d} />
+        <Becoming d={d} />
+        <div className="relative bg-ink/92">
           <Work d={d} />
           <Projects d={d} />
           <AI d={d} />

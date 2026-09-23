@@ -22,24 +22,38 @@ import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
  * If the file cannot load, or the visitor asked for reduced motion, nothing is
  * rendered and whatever sits behind it stays visible.
  */
+/** The bullet-time shot: the default the component was written for. */
+const bulletTimeProgress = () => scroll.bulletTime;
+const bulletTimeActive = () => backdropPresence(scroll.bulletEntry, scroll.bulletTime) > 0;
+
 export function ScrollVideo({
   src,
   poster,
   className = "",
   onReady,
+  progress = bulletTimeProgress,
+  active = bulletTimeActive,
 }: {
   src: string;
   poster?: string;
   className?: string;
   onReady?: (ready: boolean) => void;
+  /** 0..1, read every frame: where in the clip the scroll is. */
+  progress?: () => number;
+  /** Whether the clip is on screen at all; nothing is decoded while it is not. */
+  active?: () => boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const reduced = usePrefersReducedMotion();
   const readyRef = useRef(onReady);
+  const progressRef = useRef(progress);
+  const activeRef = useRef(active);
   useEffect(() => {
     readyRef.current = onReady;
-  }, [onReady]);
+    progressRef.current = progress;
+    activeRef.current = active;
+  }, [onReady, progress, active]);
 
   useEffect(() => {
     const video = ref.current;
@@ -93,10 +107,10 @@ export function ScrollVideo({
        * it is hidden is a decode nobody can see, and on a phone that decode
        * competes with the scroll itself — which is exactly when it hurts.
        */
-      if (backdropPresence(scroll.bulletEntry, scroll.bulletTime) <= 0) return;
+      if (!activeRef.current()) return;
 
       // A little headroom at each end so the first and last frames hold.
-      const p = Math.min(Math.max(scroll.bulletTime, 0), 1);
+      const p = Math.min(Math.max(progressRef.current(), 0), 1);
       const target = p * duration * 0.999;
 
       current += (target - current) * 0.18;

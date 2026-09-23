@@ -175,6 +175,11 @@ export const tr: Dictionary = {
     ],
   },
 
+  becoming: {
+    eyebrow: "// derlendi",
+    title: "Yukarıdaki her şeyden örüldü.",
+  },
+
   education: {
     eyebrow: "// arka plan",
     items: [

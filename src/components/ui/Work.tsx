@@ -1,5 +1,5 @@
 import type { Dictionary } from "@/i18n";
-import { CaseStudyShowcase } from "./CaseStudyShowcase";
+import { ScreensFan } from "./ScreensFan";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./SectionHead";
 
@@ -44,13 +44,9 @@ export function Work({ d }: { d: Dictionary }) {
           ))}
         </div>
 
-        {/*
-          Real screens from the shipped app, on a phone whose display changes
-          as you scroll, with the 3D scan behind it. Falls back to a plain grid
-          of the same screenshots wherever the scene cannot run.
-        */}
+        {/* Real screens from the shipped app, side by side. */}
         <div className="mt-12 sm:mt-16">
-          <CaseStudyShowcase shots={[...c.shots]} label={c.shotsLabel} />
+          <ScreensFan shots={[...c.shots]} label={c.shotsLabel} />
         </div>
 
         <Reveal delay={80}>

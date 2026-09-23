@@ -180,6 +180,11 @@ export const en = {
     ],
   },
 
+  becoming: {
+    eyebrow: "// compiled",
+    title: "Built from everything above.",
+  },
+
   education: {
     eyebrow: "// background",
     items: [

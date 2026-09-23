@@ -27,7 +27,23 @@ export type ScrollState = {
   heroOut: number;
   /** Viewport height, cached. */
   vh: number;
+  /** Viewport width, cached. */
+  vw: number;
+  /** 0..1 as the experience section rises into view. */
+  expEntry: number;
+  /** 0..1 over the three screens before that: time to fetch what it needs. */
+  expNear: number;
+  /**
+   * 0..1 through the experience section, from its top reaching the middle of
+   * the screen to the reveal section taking over.
+   */
+  expProgress: number;
+  /** 0..1 through the pinned reveal section. */
+  becoming: number;
+  /** 0..1 as the page moves on past the reveal. */
+  becomingExit: number;
 };
+
 
 export const scroll: ScrollState = {
   y: 0,
@@ -37,15 +53,27 @@ export const scroll: ScrollState = {
   bulletEntry: 0,
   heroOut: 0,
   vh: 1,
+  vw: 1,
+  expEntry: 0,
+  expNear: 0,
+  expProgress: 0,
+  becoming: 0,
+  becomingExit: 0,
 };
+
+/** Marks an experience card that throws threads at the woven figure (see WebThreads). */
+export const WEB_CARD_ATTR = "data-web-card";
 
 /** Section ids whose progress we track for the 3D scene. */
 export const SECTION = {
   hero: "hero",
   bulletTime: "bullet-time",
+  experience: "experience",
+  becoming: "becoming",
 } as const;
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
 
 /**
  * Progress of an element through the viewport as a "pinned scroll" range:
@@ -75,6 +103,9 @@ type Geometry = {
   heroHeight: number;
   btTop: number;
   btHeight: number;
+  expTop: number;
+  beTop: number;
+  beHeight: number;
   docHeight: number;
 };
 
@@ -104,11 +135,18 @@ export function remeasure() {
   const bt = document.getElementById(SECTION.bulletTime);
   const h = hero?.getBoundingClientRect();
   const b = bt?.getBoundingClientRect();
+  const e = document.getElementById(SECTION.experience)?.getBoundingClientRect();
+  const be = document.getElementById(SECTION.becoming)?.getBoundingClientRect();
   geometry = {
     heroTop: h ? h.top + y : 0,
     heroHeight: h ? h.height : 1,
     btTop: b ? b.top + y : 0,
     btHeight: b ? b.height : 1,
+    // Unset sections park far below the page, so everything keyed to them
+    // simply reads as "not reached yet".
+    expTop: e ? e.top + y : Number.MAX_SAFE_INTEGER,
+    beTop: be ? be.top + y : Number.MAX_SAFE_INTEGER,
+    beHeight: be ? be.height : 1,
     docHeight: document.documentElement.scrollHeight,
   };
   /*
@@ -121,6 +159,7 @@ export function remeasure() {
     measuredWidth = window.innerWidth;
     scroll.vh = window.innerHeight;
   }
+  scroll.vw = window.innerWidth;
 }
 
 /** Recompute every derived value from the current scroll offset. No layout reads. */
@@ -141,4 +180,16 @@ export function measure() {
   // 0 when the section's top is a full viewport below, 1 when it reaches the
   // top of the screen and the pin takes over.
   scroll.bulletEntry = clamp01(1 - (g.btTop - y) / Math.max(vh, 1));
+
+  scroll.expEntry = clamp01(1 - (g.expTop - y) / Math.max(vh, 1));
+  scroll.expNear = clamp01(1 - (g.expTop - y) / Math.max(vh * 3, 1));
+
+  const expStart = g.expTop - vh * 0.5;
+  const expSpan = g.beTop - expStart;
+  scroll.expProgress = expSpan > 0 ? clamp01((y - expStart) / expSpan) : 0;
+
+  const beScroll = g.beHeight - vh;
+  scroll.becoming = beScroll > 0 ? clamp01((y - g.beTop) / beScroll) : 0;
+  // Starts the moment the pin lets go; one viewport later the page has moved on.
+  scroll.becomingExit = clamp01((y - (g.beTop + Math.max(beScroll, 0))) / Math.max(vh, 1));
 }

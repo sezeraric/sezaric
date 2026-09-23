@@ -68,68 +68,34 @@ export function rainIntensity(entry: number, bulletTime: number): number {
 
 
 /**
- * The case-study showcase choreography.
+ * How present the woven figure is on the page, 0..1.
  *
- * Four beats across the pinned section:
- *
- *   1. phone left, figure right
- *   2. they cross over — phone right, figure left
- *   3. held, while the last screen is read
- *   4. the phone leaves and the figure walks to the centre and grows
- *
- * `spread` scales the horizontal offsets: a narrow canvas has no room to put
- * two objects side by side, so it gets a much smaller swing and leans on depth
- * instead. The finale is the same at every width.
+ * `entry` rises as the experience section approaches; `exit` rises once the
+ * reveal has finished and the page moves on. The figure is only ever there
+ * for these two sections.
  */
-export type Showcase = {
-  phoneX: number;
-  phoneZ: number;
-  phoneYaw: number;
-  phoneOpacity: number;
-  figureX: number;
-  figureY: number;
-  figureZ: number;
-  figureScale: number;
-  figureOpacity: number;
-  /** 0..1 across the screenshot sequence; finishes before the finale starts. */
-  screen: number;
-  /**
-   * 0..1 — the photograph the scan was built from, taking its place.
-   *
-   * Held at zero until the figure is already coming forward, so the reveal
-   * lands as the last thing the section does rather than as a photograph that
-   * was quietly there the whole time.
-   */
-  real: number;
-};
+export function figurePresence(entry: number, exit: number): number {
+  return smoothstep(entry, 0, 0.35) * (1 - smoothstep(exit, 0.15, 0.85));
+}
 
-const FINALE_START = 0.84;
+/**
+ * Where the weave clip is, 0..1, from the two sections that drive it.
+ *
+ * The clip (public/weave.mp4) has two acts: green threads stream in and build
+ * a wireframe of the figure feet first, and then the wireframe turns into the
+ * photograph. WIREFRAME_DONE is where the first act ends in the clip.
+ *
+ * The experience section plays the first act — the figure is built while the
+ * career is read — and the reveal section plays the second, finishing early
+ * enough that the finished picture holds for the rest of the pin.
+ */
+export const WIREFRAME_DONE = 0.76;
 
-export function showcase(p: number, spread: number): Showcase {
-  const t = clamp01(p);
+export function weaveProgress(experience: number, reveal: number): number {
+  return WIREFRAME_DONE * clamp01(experience) + (1 - WIREFRAME_DONE) * smoothstep(reveal, 0.1, 0.75);
+}
 
-  // Beat 1 -> 2: a single crossing, eased so they pass each other rather than
-  // teleport. 0 = phone left, 1 = phone right.
-  const cross = smoothstep(t, 0.3, 0.62);
-  const side = -1 + 2 * cross;
-
-  // Beat 4: the phone leaves, the figure takes the middle and comes forward.
-  const finale = smoothstep(t, FINALE_START, 1);
-
-  return {
-    phoneX: side * 0.78 * spread * (1 - finale) + finale * 1.9 * spread,
-    phoneZ: -finale * 1.2,
-    phoneYaw: 0.3 - 0.52 * cross,
-    phoneOpacity: 1 - smoothstep(t, FINALE_START, 0.95),
-    figureX: -side * 1.18 * spread * (1 - finale),
-    // Drops as it grows: at full size it no longer fits the frame, and losing
-    // the legs reads as a portrait while losing the head reads as a bug.
-    figureY: -finale * 0.85,
-    figureZ: -0.9 * (1 - finale) + finale * 0.5,
-    figureScale: 1.55 + finale * 0.8,
-    figureOpacity: smoothstep(t, 0, 0.1),
-    // The screens finish before the finale so the last one is actually read.
-    screen: clamp01(t / FINALE_START),
-    real: smoothstep(t, 0.88, 0.99),
-  };
+/** 0..1 — the figure walking from its spot beside the copy to the centre, at the start of the reveal. */
+export function revealMove(reveal: number): number {
+  return smoothstep(reveal, 0, 0.3);
 }
