@@ -6,7 +6,9 @@ import { SectionHead } from "./SectionHead";
 export function Work({ d }: { d: Dictionary }) {
   const c = d.caseStudy;
   return (
-    <section id="work" className="scroll-mt-24 border-t border-line bg-surface/30 py-24 sm:py-36">
+    // Clipped sideways at the screen edge, never inside it: a tilted phone in
+    // the screens fan must not give the page a sideways scroll.
+    <section id="work" className="scroll-mt-24 overflow-x-clip border-t border-line bg-surface/30 py-24 sm:py-36">
       <div className="shell">
         <SectionHead eyebrow={c.eyebrow} title={c.name} lead={c.summary} />
 

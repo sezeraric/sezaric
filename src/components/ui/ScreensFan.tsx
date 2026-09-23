@@ -32,9 +32,9 @@ export function ScreensFan({ shots, label }: { shots: Shot[]; label: string }) {
                 className={`fan-phone fan-${side} relative ${
                   side === "centre"
                     ? "z-20 w-[46%] sm:w-[31%]"
-                    : "z-10 w-[37%] sm:w-[25%]"
-                } ${side === "left" ? "-mr-[9%] sm:-mr-[4%]" : ""} ${
-                  side === "right" ? "-ml-[9%] sm:-ml-[4%]" : ""
+                    : "z-10 w-[31%] sm:w-[25%]"
+                } ${side === "left" ? "-mr-[6%] sm:-mr-[4%]" : ""} ${
+                  side === "right" ? "-ml-[6%] sm:-ml-[4%]" : ""
                 }`}
               >
                 <Image
