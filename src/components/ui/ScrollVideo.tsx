@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { scroll } from "@/lib/scroll";
+import { backdropPresence } from "@/lib/curves";
 import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
 
 /**
@@ -86,6 +87,13 @@ export function ScrollVideo({
     const loop = () => {
       raf = requestAnimationFrame(loop);
       if (!duration) return;
+
+      /*
+       * The shot is only on screen for one section of the page. Seeking while
+       * it is hidden is a decode nobody can see, and on a phone that decode
+       * competes with the scroll itself — which is exactly when it hurts.
+       */
+      if (backdropPresence(scroll.bulletEntry, scroll.bulletTime) <= 0) return;
 
       // A little headroom at each end so the first and last frames hold.
       const p = Math.min(Math.max(scroll.bulletTime, 0), 1);

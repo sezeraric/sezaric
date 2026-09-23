@@ -37,5 +37,15 @@ export function detect(): Capabilities {
     low: { dpr: [1, 1], rainDensity: 0.5, bulletCount: 4, postprocessing: false },
   };
 
-  return { tier, reducedMotion, ...byTier[tier] };
+  const caps = { tier, reducedMotion, ...byTier[tier] };
+
+  /*
+   * No postprocessing on a touch device, whatever its core count says.
+   * Bloom is several full-screen passes over a canvas that already covers the
+   * viewport, and on a phone that GPU time is taken straight out of the
+   * scroll's frame budget. The rain reads fine without it.
+   */
+  if (coarse) caps.postprocessing = false;
+
+  return caps;
 }

@@ -336,3 +336,20 @@ html.lenis, html.lenis body { height: auto; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- touch devices: no live blur ---------------------------------------- */
+
+/*
+ * backdrop-filter has to re-sample whatever is behind the element every frame.
+ * Behind these is a WebGL canvas that changes every frame, so the blur can
+ * never be cached — on a phone that is a full-screen readback on top of the
+ * scroll's own work, and it showed as stutter. The translucent background
+ * alone carries the same separation.
+ */
+@media (pointer: coarse) {
+  .backdrop-blur-md,
+  .backdrop-blur-\[2px\] {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -79,6 +79,23 @@ type Geometry = {
 };
 
 let geometry: Geometry | null = null;
+let measuredWidth = 0;
+
+/**
+ * True when a window resize is nothing but the mobile browser's own chrome.
+ *
+ * Scrolling back up on a phone slides the URL bar back in, which fires resize
+ * on almost every frame of that animation. Re-measuring there was pure jank:
+ * the sections are laid out in `svh`, which by definition does not move when
+ * the bar does, so the geometry is identical each time. Only a width change or
+ * a big height change (an orientation flip) is a real layout change.
+ */
+export function isBrowserChromeResize(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.innerWidth !== measuredWidth) return false;
+  const delta = Math.abs(window.innerHeight - scroll.vh);
+  return delta < scroll.vh * 0.3;
+}
 
 export function remeasure() {
   if (typeof document === "undefined") return;
@@ -94,7 +111,16 @@ export function remeasure() {
     btHeight: b ? b.height : 1,
     docHeight: document.documentElement.scrollHeight,
   };
-  scroll.vh = window.innerHeight;
+  /*
+   * The height used by every curve stays put while the URL bar comes and goes.
+   * Letting it follow innerHeight made the pin progress — and with it the
+   * video's currentTime — drift by a few percent during that animation, which
+   * read as the shot twitching whenever you scrolled up.
+   */
+  if (window.innerWidth !== measuredWidth || !scroll.vh || scroll.vh === 1) {
+    measuredWidth = window.innerWidth;
+    scroll.vh = window.innerHeight;
+  }
 }
 
 /** Recompute every derived value from the current scroll offset. No layout reads. */

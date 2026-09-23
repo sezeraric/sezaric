@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
-import { measure, remeasure, scroll } from "@/lib/scroll";
+import { isBrowserChromeResize, measure, remeasure, scroll } from "@/lib/scroll";
 import { setLenis } from "@/lib/smoothScroll";
 
 /**
@@ -28,16 +28,34 @@ export default function SmoothScroll() {
       (window as unknown as { __scroll?: typeof scroll }).__scroll = scroll;
     }
 
-    // Section offsets change when layout does — images and fonts arriving,
-    // the viewport resizing, the mobile URL bar collapsing. Re-measure then,
-    // not on every scroll event.
+    /*
+     * Section offsets change when layout does — images and fonts arriving, the
+     * viewport rotating. Re-measure then, not on every scroll event, and never
+     * more than once a frame: a ResizeObserver can fire several times in one
+     * frame, and each call reads layout back.
+     */
+    let pending = 0;
     const onLayout = () => {
-      remeasure();
-      measure();
+      if (pending) return;
+      pending = requestAnimationFrame(() => {
+        pending = 0;
+        remeasure();
+        measure();
+      });
+    };
+    /*
+     * The body's own box is the honest signal for "the page got taller". The
+     * window resize event is not: on a phone it fires throughout the URL bar's
+     * show/hide animation, which is exactly when scrolling up needs the main
+     * thread most, and nothing has actually moved.
+     */
+    const onWindowResize = () => {
+      if (isBrowserChromeResize()) return;
+      onLayout();
     };
     const ro = new ResizeObserver(onLayout);
     ro.observe(document.body);
-    window.addEventListener("resize", onLayout);
+    window.addEventListener("resize", onWindowResize);
     onLayout();
 
     if (reduced || touch) {
@@ -57,7 +75,8 @@ export default function SmoothScroll() {
       return () => {
         html.style.scrollBehavior = previous;
         window.removeEventListener("scroll", onScroll);
-        window.removeEventListener("resize", onLayout);
+        window.removeEventListener("resize", onWindowResize);
+        cancelAnimationFrame(pending);
         ro.disconnect();
       };
     }
@@ -103,7 +122,8 @@ export default function SmoothScroll() {
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onLayout);
+      window.removeEventListener("resize", onWindowResize);
+      cancelAnimationFrame(pending);
       document.removeEventListener("click", onClick);
       ro.disconnect();
       setLenis(null);

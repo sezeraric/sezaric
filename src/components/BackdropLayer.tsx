@@ -38,10 +38,22 @@ export default function BackdropLayer() {
   // React work — this runs every frame and must never re-render.
   useEffect(() => {
     let raf = 0;
+    let last = -1;
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const el = shotRef.current;
-      if (el) el.style.opacity = String(backdropPresence(scroll.bulletEntry, scroll.bulletTime));
+      if (!el) return;
+      const presence = backdropPresence(scroll.bulletEntry, scroll.bulletTime);
+      if (presence === last) return;
+      last = presence;
+      el.style.opacity = String(presence);
+      /*
+       * A full-screen video is a compositing layer whether or not it is
+       * visible, and it is invisible for most of the page. Taking it out of
+       * the layer tree entirely is the difference between the phone
+       * compositing two full-screen surfaces per scrolled frame and one.
+       */
+      el.style.visibility = presence > 0 ? "visible" : "hidden";
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -49,7 +61,7 @@ export default function BackdropLayer() {
 
   return (
     <div className="pointer-events-none fixed inset-0 -z-10" aria-hidden="true">
-      <div ref={shotRef} className="absolute inset-0" style={{ opacity: 0 }}>
+      <div ref={shotRef} className="absolute inset-0" style={{ opacity: 0, visibility: "hidden" }}>
         {reduced ? (
           // Reduced motion: hold a single frame rather than scrubbing.
           // eslint-disable-next-line @next/next/no-img-element
