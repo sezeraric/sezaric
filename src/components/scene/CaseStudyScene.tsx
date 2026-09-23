@@ -91,7 +91,7 @@ const figureFrag = /* glsl */ `
   }
 `;
 
-const faceFrag = /* glsl */ `
+const photoFrag = /* glsl */ `
   precision highp float;
   uniform sampler2D uMap;
   uniform float uOpacity;
@@ -99,10 +99,14 @@ const faceFrag = /* glsl */ `
 
   void main() {
     vec4 c = texture2D(uMap, vUv);
-    // Graded toward the section's green so the photograph belongs to the same
-    // picture as the wireframe it is sitting on, rather than looking pasted.
+    // Graded toward the section's green, but lightly: this is the photograph
+    // the scan was built from, and the point of the last beat is that it is
+    // unmistakably a photograph.
     float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-    vec3 tinted = mix(c.rgb, vec3(0.06, 0.14, 0.09) + vec3(0.35, 1.0, 0.55) * l, 0.30);
+    vec3 tinted = mix(c.rgb, vec3(0.05, 0.12, 0.08) + vec3(0.30, 0.95, 0.50) * l, 0.16);
+    // The coat is black on a black page: lift the midtones a little so the
+    // fabric keeps its form instead of flattening into the background.
+    tinted = pow(max(tinted, 0.0), vec3(0.9));
     gl_FragColor = vec4(tinted, c.a * uOpacity);
   }
 `;
@@ -132,7 +136,7 @@ function Figure({
     return g;
   }, [nodes]);
 
-  const head = useMemo(() => headOf(geometry), [geometry]);
+  const bounds = useMemo(() => boundsOf(geometry), [geometry]);
 
   const material = useMemo(
     () =>
@@ -159,8 +163,10 @@ function Figure({
     const k = Math.min(1, dt * 6);
 
     material.uniforms.uTime.value += dt;
-    material.uniforms.uOpacity.value +=
-      (c.figureOpacity - material.uniforms.uOpacity.value) * k;
+    // Dims under the photograph rather than sitting behind it as a second,
+    // brighter outline of the same body.
+    const wire = c.figureOpacity * (1 - 0.85 * c.real);
+    material.uniforms.uOpacity.value += (wire - material.uniforms.uOpacity.value) * k;
 
     const g = group.current;
     if (!g) return;
@@ -179,7 +185,7 @@ function Figure({
         y: +g.position.y.toFixed(2),
         scale: +g.scale.y.toFixed(2),
         opacity: +material.uniforms.uOpacity.value.toFixed(2),
-        headWorldY: +(g.position.y + head.y * g.scale.y).toFixed(2),
+        centreWorldY: +(g.position.y + bounds.y * g.scale.y).toFixed(2),
       };
     }
   });
@@ -189,59 +195,58 @@ function Figure({
       <mesh geometry={geometry} frustumCulled={false}>
         <primitive object={material} attach="material" />
       </mesh>
-      <Face head={head} stateRef={stateRef} spread={spread} />
+      <Photograph bounds={bounds} stateRef={stateRef} spread={spread} />
     </group>
   );
 }
 
-/** Where the scan's head is, in the model's own coordinates. */
-type Head = { x: number; y: number; z: number; height: number };
+/** The scan's own extents, in the model's coordinates. */
+type Bounds = { x: number; y: number; z: number; height: number };
 
-function headOf(geometry: THREE.BufferGeometry): Head {
+function boundsOf(geometry: THREE.BufferGeometry): Bounds {
   geometry.computeBoundingBox();
   const box = geometry.boundingBox ?? new THREE.Box3();
   const size = new THREE.Vector3();
   const centre = new THREE.Vector3();
   box.getSize(size);
   box.getCenter(centre);
-  // A standing figure is roughly seven and a half heads tall, and the scan is
-  // a whole body, so this lands on the head without hand-tuned numbers.
-  const height = size.y / 7.5;
   return {
     x: centre.x,
-    y: box.max.y - height * 0.52,
-    z: centre.z + size.z * 0.34,
-    height,
+    y: centre.y,
+    // In front of the scan, so the photograph covers it rather than z-fighting
+    // with the surface it is replacing.
+    z: centre.z + size.z * 0.6,
+    height: size.y,
   };
 }
 
 /**
- * The photograph, over the scan's head, at the very end.
+ * The photograph the scan was made from, taking its place at the very end.
  *
- * The scan has no face — it is a surface, and the fresnel shader is what makes
- * it read at all. So the section ends by giving it one: as the figure comes
- * forward the real face fades in over the wireframe head. It is billboarded,
- * because a flat photograph is only ever right from straight on, and the
- * figure is square to the camera by then anyway.
+ * The model is a scan of this exact frame, so the two line up: as the figure
+ * walks to the centre and grows, the wireframe dims and the photograph resolves
+ * out of it in the same pose, at the same size. Billboarded, because a flat
+ * photograph is only ever right from straight on, and the figure is square to
+ * the camera by then anyway.
  */
-function Face({
-  head,
+function Photograph({
+  bounds,
   stateRef,
   spread,
 }: {
-  head: Head;
+  bounds: Bounds;
   stateRef: React.RefObject<ShowcaseState>;
   spread: number;
 }) {
   const mesh = useRef<THREE.Mesh>(null);
-  const texture = useLoader(THREE.TextureLoader, "/figure/face.webp");
+  const texture = useLoader(THREE.TextureLoader, "/figure/real-full.webp");
 
   const material = useMemo(() => {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 8;
     return new THREE.ShaderMaterial({
       vertexShader: screenVert,
-      fragmentShader: faceFrag,
+      fragmentShader: photoFrag,
       transparent: true,
       depthWrite: false,
       uniforms: { uMap: { value: texture }, uOpacity: { value: 0 } },
@@ -252,13 +257,13 @@ function Face({
 
   const size = useMemo(() => {
     const image = texture.image as { width: number; height: number } | undefined;
-    const aspect = image && image.height ? image.width / image.height : 0.8;
-    // A photographed head is taller than the skull the scan gives us: hair at
-    // the top, jaw at the bottom. Measured against the rendered frames rather
-    // than guessed — see public/figure.
-    const h = head.height * 1.25;
+    const aspect = image && image.height ? image.width / image.height : 0.4;
+    // real-full.webp is cropped tight to the body (the phone version's
+    // real.webp is padded to line up with the turn frames instead), so
+    // matching the scan's height puts the two silhouettes on top of each other.
+    const h = bounds.height;
     return [h * aspect, h] as const;
-  }, [texture, head.height]);
+  }, [texture, bounds.height]);
 
   const billboard = useMemo(() => new THREE.Quaternion(), []);
 
@@ -268,7 +273,7 @@ function Face({
     const dt = Math.min(delta, 1 / 30);
     const c = showcase(stateRef.current?.progress ?? 0, spread);
     const u = material.uniforms.uOpacity;
-    u.value += (c.face - u.value) * Math.min(1, dt * 6);
+    u.value += (c.real - u.value) * Math.min(1, dt * 6);
     // Nothing to draw, and nothing to compute, for most of the section.
     m.visible = u.value > 0.003;
     if (!m.visible || !m.parent) return;
@@ -279,7 +284,7 @@ function Face({
     if (process.env.NODE_ENV === "development") {
       // Handle for checking the reveal without having to trust a screenshot.
       const w = m.getWorldPosition(new THREE.Vector3());
-      (window as unknown as { __face?: unknown }).__face = {
+      (window as unknown as { __photo?: unknown }).__photo = {
         opacity: +u.value.toFixed(3),
         world: w.toArray().map((n) => +n.toFixed(2)),
         height: +(size[1] * (m.parent.scale.y || 1)).toFixed(2),
@@ -290,7 +295,7 @@ function Face({
   return (
     <mesh
       ref={mesh}
-      position={[head.x, head.y, head.z]}
+      position={[bounds.x, bounds.y, bounds.z]}
       renderOrder={2}
       frustumCulled={false}
       visible={false}

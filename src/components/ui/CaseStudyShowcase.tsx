@@ -28,14 +28,14 @@ export type Shot = { src: string; alt: string; caption: string };
  */
 /**
  * Pre-rendered turns of the scan, in scroll order: he turns toward you across
- * the screenshots, and on the last one the photograph of the face lands on the
- * wireframe head — the same reveal the 3D scene ends on.
+ * the screenshots, and the last frame is the photograph the scan was made from,
+ * aligned to the same silhouette — the same reveal the 3D scene ends on.
  */
 const TURNS = [
   "/figure/turn-0.webp",
   "/figure/turn-1.webp",
   "/figure/turn-2.webp",
-  "/figure/turn-face.webp",
+  "/figure/real.webp",
 ];
 
 /**
