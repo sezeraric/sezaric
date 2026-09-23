@@ -93,6 +93,14 @@ export type Showcase = {
   figureOpacity: number;
   /** 0..1 across the screenshot sequence; finishes before the finale starts. */
   screen: number;
+  /**
+   * 0..1 — the photograph of the face over the scan's head.
+   *
+   * Held at zero until the figure is already coming forward, so the reveal
+   * lands as the last thing the section does rather than as a face that was
+   * quietly there the whole time.
+   */
+  face: number;
 };
 
 const FINALE_START = 0.84;
@@ -122,5 +130,6 @@ export function showcase(p: number, spread: number): Showcase {
     figureOpacity: smoothstep(t, 0, 0.1),
     // The screens finish before the finale so the last one is actually read.
     screen: clamp01(t / FINALE_START),
+    face: smoothstep(t, 0.9, 0.99),
   };
 }

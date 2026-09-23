@@ -118,6 +118,10 @@ try {
   if (aEnd.figureY >= 0) fail.push("figure does not drop as it grows, so it will be cropped at the head");
   // Every screenshot has to be reached before the finale takes over.
   if (showcase(0.84, 1).screen < 0.999) fail.push("last screenshot never fully shown");
+  // The face is the section's last beat: nothing of it before the figure is
+  // already on its way forward, and fully there by the end.
+  if (showcase(0.88, 1).face > 1e-6) fail.push("face showing before the finale");
+  if (aEnd.face < 0.999) fail.push("face never fully arrives");
   if (a0.screen > 1e-6) fail.push("screen sequence does not start at the first shot");
   void aMid;
 

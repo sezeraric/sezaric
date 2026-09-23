@@ -26,8 +26,17 @@ export type Shot = { src: string; alt: string; caption: string };
  * failure inside the canvas. The screenshots are the content; the scene is a
  * way of presenting them, and it never gets to be the reason they are missing.
  */
-/** Pre-rendered turns of the scan, in scroll order. */
-const TURNS = ["/figure/turn-0.webp", "/figure/turn-1.webp", "/figure/turn-2.webp", "/figure/turn-3.webp"];
+/**
+ * Pre-rendered turns of the scan, in scroll order: he turns toward you across
+ * the screenshots, and on the last one the photograph of the face lands on the
+ * wireframe head — the same reveal the 3D scene ends on.
+ */
+const TURNS = [
+  "/figure/turn-0.webp",
+  "/figure/turn-1.webp",
+  "/figure/turn-2.webp",
+  "/figure/turn-face.webp",
+];
 
 /**
  * The scan, for devices that do not get the 3D scene.

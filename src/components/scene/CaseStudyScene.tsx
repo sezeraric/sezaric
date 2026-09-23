@@ -91,6 +91,22 @@ const figureFrag = /* glsl */ `
   }
 `;
 
+const faceFrag = /* glsl */ `
+  precision highp float;
+  uniform sampler2D uMap;
+  uniform float uOpacity;
+  varying vec2 vUv;
+
+  void main() {
+    vec4 c = texture2D(uMap, vUv);
+    // Graded toward the section's green so the photograph belongs to the same
+    // picture as the wireframe it is sitting on, rather than looking pasted.
+    float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 tinted = mix(c.rgb, vec3(0.06, 0.14, 0.09) + vec3(0.35, 1.0, 0.55) * l, 0.30);
+    gl_FragColor = vec4(tinted, c.a * uOpacity);
+  }
+`;
+
 export type ShowcaseState = {
   /** 0..1 through the showcase section. */
   progress: number;
@@ -115,6 +131,8 @@ function Figure({
     if (!g.getAttribute("normal")) g.computeVertexNormals();
     return g;
   }, [nodes]);
+
+  const head = useMemo(() => headOf(geometry), [geometry]);
 
   const material = useMemo(
     () =>
@@ -155,6 +173,15 @@ function Figure({
     g.scale.z += (s - g.scale.z) * k;
     // Turns to face the camera as it takes the centre.
     g.rotation.y += (-c.figureX * 0.22 - g.rotation.y) * k;
+
+    if (process.env.NODE_ENV === "development") {
+      (window as unknown as { __figure?: unknown }).__figure = {
+        y: +g.position.y.toFixed(2),
+        scale: +g.scale.y.toFixed(2),
+        opacity: +material.uniforms.uOpacity.value.toFixed(2),
+        headWorldY: +(g.position.y + head.y * g.scale.y).toFixed(2),
+      };
+    }
   });
 
   return (
@@ -162,7 +189,115 @@ function Figure({
       <mesh geometry={geometry} frustumCulled={false}>
         <primitive object={material} attach="material" />
       </mesh>
+      <Face head={head} stateRef={stateRef} spread={spread} />
     </group>
+  );
+}
+
+/** Where the scan's head is, in the model's own coordinates. */
+type Head = { x: number; y: number; z: number; height: number };
+
+function headOf(geometry: THREE.BufferGeometry): Head {
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox ?? new THREE.Box3();
+  const size = new THREE.Vector3();
+  const centre = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(centre);
+  // A standing figure is roughly seven and a half heads tall, and the scan is
+  // a whole body, so this lands on the head without hand-tuned numbers.
+  const height = size.y / 7.5;
+  return {
+    x: centre.x,
+    y: box.max.y - height * 0.52,
+    z: centre.z + size.z * 0.34,
+    height,
+  };
+}
+
+/**
+ * The photograph, over the scan's head, at the very end.
+ *
+ * The scan has no face — it is a surface, and the fresnel shader is what makes
+ * it read at all. So the section ends by giving it one: as the figure comes
+ * forward the real face fades in over the wireframe head. It is billboarded,
+ * because a flat photograph is only ever right from straight on, and the
+ * figure is square to the camera by then anyway.
+ */
+function Face({
+  head,
+  stateRef,
+  spread,
+}: {
+  head: Head;
+  stateRef: React.RefObject<ShowcaseState>;
+  spread: number;
+}) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const texture = useLoader(THREE.TextureLoader, "/figure/face.webp");
+
+  const material = useMemo(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+    return new THREE.ShaderMaterial({
+      vertexShader: screenVert,
+      fragmentShader: faceFrag,
+      transparent: true,
+      depthWrite: false,
+      uniforms: { uMap: { value: texture }, uOpacity: { value: 0 } },
+    });
+  }, [texture]);
+
+  useEffect(() => () => material.dispose(), [material]);
+
+  const size = useMemo(() => {
+    const image = texture.image as { width: number; height: number } | undefined;
+    const aspect = image && image.height ? image.width / image.height : 0.8;
+    // A photographed head is taller than the skull the scan gives us: hair at
+    // the top, jaw at the bottom. Measured against the rendered frames rather
+    // than guessed — see public/figure.
+    const h = head.height * 1.25;
+    return [h * aspect, h] as const;
+  }, [texture, head.height]);
+
+  const billboard = useMemo(() => new THREE.Quaternion(), []);
+
+  useFrame(({ camera }, delta) => {
+    const m = mesh.current;
+    if (!m) return;
+    const dt = Math.min(delta, 1 / 30);
+    const c = showcase(stateRef.current?.progress ?? 0, spread);
+    const u = material.uniforms.uOpacity;
+    u.value += (c.face - u.value) * Math.min(1, dt * 6);
+    // Nothing to draw, and nothing to compute, for most of the section.
+    m.visible = u.value > 0.003;
+    if (!m.visible || !m.parent) return;
+    // Square to the camera, in spite of whatever the figure's group is doing.
+    m.parent.getWorldQuaternion(billboard);
+    m.quaternion.copy(billboard.invert()).multiply(camera.quaternion);
+
+    if (process.env.NODE_ENV === "development") {
+      // Handle for checking the reveal without having to trust a screenshot.
+      const w = m.getWorldPosition(new THREE.Vector3());
+      (window as unknown as { __face?: unknown }).__face = {
+        opacity: +u.value.toFixed(3),
+        world: w.toArray().map((n) => +n.toFixed(2)),
+        height: +(size[1] * (m.parent.scale.y || 1)).toFixed(2),
+      };
+    }
+  });
+
+  return (
+    <mesh
+      ref={mesh}
+      position={[head.x, head.y, head.z]}
+      renderOrder={2}
+      frustumCulled={false}
+      visible={false}
+    >
+      <planeGeometry args={[size[0], size[1]]} />
+      <primitive object={material} attach="material" />
+    </mesh>
   );
 }
 
