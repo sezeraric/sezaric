@@ -51,6 +51,14 @@ export const en = {
   ],
 
   hero: { scroll: "Scroll", followRabbit: "Follow the white rabbit" },
+  rabbit: {
+    caught: "You caught me! Oops… the code isn't running right.",
+    cameo: [
+      "Déjà vu? That was a glitch in the Matrix. I'm the real rabbit.",
+      "You can't catch me, Neo. But you can follow me.",
+      "There is no spoon. There is no rabbit either. And yet, here I am.",
+    ],
+  },
 
   bullets: [
     { label: "ANR", detail: "Main-thread blocks that freeze Android" },

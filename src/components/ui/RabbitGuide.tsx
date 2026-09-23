@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { scroll } from "@/lib/scroll";
-import { scrollToElement } from "@/lib/smoothScroll";
 import { RabbitGlyph } from "./WhiteRabbit";
 
 /**
@@ -12,8 +11,12 @@ import { RabbitGlyph } from "./WhiteRabbit";
  * terminal. This one keeps going: while you scroll it bounds left and right
  * along the bottom of the screen, and when you stop it ducks under the edge
  * and puts its head up to look at you — ears twitching, blinking, eyes on your
- * pointer. Scroll again and it drops out of sight and carries on hopping. Tap
- * it while it is looking and it leads you to the next section.
+ * pointer. Scroll again and it drops out of sight and carries on hopping.
+ *
+ * Try to catch it and it plays along: "you caught me — oops, the code isn't
+ * running right", then the one you caught glitches out of existence and the
+ * real one puts its head in from the top-left corner with a line from the
+ * film. It was never the rabbit you were holding.
  *
  * It keeps out of the way of the two cinematic moments (the bullet-time shot
  * and the pinned experience stage) and goes home once the contact section,
@@ -21,7 +24,20 @@ import { RabbitGlyph } from "./WhiteRabbit";
  * writing transforms; nothing here re-renders.
  */
 
-type Mode = "gone" | "hop" | "dive" | "rise" | "peek" | "duck";
+type Mode =
+  | "gone"
+  | "hop"
+  | "dive"
+  | "rise"
+  | "peek"
+  | "duck"
+  // Caught:
+  | "caught"
+  | "vanish"
+  | "cameoIn"
+  | "cameoTalk"
+  | "cameoOut"
+  | "rest";
 
 const HOP = 0.52; // seconds per hop
 const DIVE = 0.26;
@@ -29,6 +45,14 @@ const RISE = 0.5;
 const DUCK = 0.2;
 /** How long the page has to be still before the rabbit counts it as a stop. */
 const STILL = 0.22;
+
+const TYPE = 0.032; // seconds per typed character in a speech bubble
+const CAUGHT_HOLD = 1.3;
+const VANISH = 0.9;
+const CAMEO_IN = 0.55;
+const CAMEO_HOLD = 3;
+const CAMEO_OUT = 0.4;
+const REST = 1.4;
 
 const clamp = (n: number, a: number, b: number) => (n < a ? a : n > b ? b : n);
 const easeOutBack = (t: number) => {
@@ -84,8 +108,26 @@ function RabbitFace() {
   );
 }
 
-export function RabbitGuide({ label }: { label: string }) {
-  const hopper = useRef<HTMLDivElement>(null);
+export function RabbitGuide({
+  label,
+  caught,
+  cameo,
+}: {
+  label: string;
+  /** What the caught rabbit says. */
+  caught: string;
+  /** Lines the real rabbit says from the corner, in turn. */
+  cameo: readonly string[];
+}) {
+  const hopper = useRef<HTMLButtonElement>(null);
+  const bubble = useRef<HTMLDivElement>(null);
+  const cameoEl = useRef<HTMLDivElement>(null);
+  /** Set by a tap; read by the frame loop. */
+  const tapped = useRef(false);
+  const lines = useRef({ caught, cameo });
+  useEffect(() => {
+    lines.current = { caught, cameo };
+  }, [caught, cameo]);
   const body = useRef<HTMLDivElement>(null);
   const shadow = useRef<HTMLDivElement>(null);
   const peeker = useRef<HTMLButtonElement>(null);
@@ -97,7 +139,9 @@ export function RabbitGuide({ label }: { label: string }) {
     const bod = body.current;
     const sh = shadow.current;
     const pk = peeker.current;
-    if (!hop || !bod || !sh || !pk) return;
+    const bub = bubble.current;
+    const cam = cameoEl.current;
+    if (!hop || !bod || !sh || !pk || !bub || !cam) return;
     pupils.current = pk.querySelector(".rabbit-pupils");
 
     // Home, once the contact section — where it is waiting — is on screen.
@@ -160,6 +204,8 @@ export function RabbitGuide({ label }: { label: string }) {
       const top = vh - floor() - s - lift;
       hop.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
       hop.style.opacity = visible ? "1" : "0";
+      // Catchable while it is on screen, and never an invisible tap target.
+      hop.style.pointerEvents = visible ? "auto" : "none";
       // Stretch in the air, squash on the ground; nose up rising, down falling.
       const air = Math.sin(Math.PI * clamp(t, 0, 1));
       const sy = 1 + 0.16 * air - (t > 0.9 ? 0.18 * ((t - 0.9) / 0.1) : 0);
@@ -182,9 +228,71 @@ export function RabbitGuide({ label }: { label: string }) {
       pk.tabIndex = mode === "peek" ? 0 : -1;
     };
 
+    // --- speech bubble ---------------------------------------------------
+    let bubbleText = "";
+    let bubbleAt = 0;
+    let bubbleAnchor = { x: 0, y: 0, side: "above" as "above" | "right" };
+    let cameoLine = 0;
+    let caughtEl: HTMLElement | null = null;
+
+    const say = (text: string, now: number, anchor: typeof bubbleAnchor) => {
+      bubbleText = text;
+      bubbleAt = now;
+      bubbleAnchor = anchor;
+      bub.classList.remove("is-fading");
+      bub.dataset.side = anchor.side;
+      bub.style.visibility = "visible";
+    };
+    const hush = () => bub.classList.add("is-fading");
+    const drawBubble = (now: number) => {
+      if (!bubbleText) return;
+      const shown = Math.min(bubbleText.length, Math.floor((now - bubbleAt) / TYPE));
+      const typing = shown < bubbleText.length;
+      const content = bubbleText.slice(0, shown) + (typing ? "▌" : "");
+      if (bub.textContent !== content) bub.textContent = content;
+      const w = bub.offsetWidth;
+      const h = bub.offsetHeight;
+      const vw = window.innerWidth;
+      let left: number;
+      let top: number;
+      if (bubbleAnchor.side === "above") {
+        left = clamp(bubbleAnchor.x - w / 2, 12, vw - w - 12);
+        top = bubbleAnchor.y - h - 14;
+      } else {
+        left = Math.min(bubbleAnchor.x + 12, vw - w - 12);
+        top = bubbleAnchor.y - h * 0.3;
+      }
+      bub.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
+      // Point the tail at the rabbit, wherever the bubble ended up.
+      bub.style.setProperty("--tail", `${clamp(bubbleAnchor.x - left, 14, w - 14).toFixed(1)}px`);
+    };
+    const typedFor = (text: string) => text.length * TYPE;
+
+    const placeCameo = (shown: number) => {
+      // Leans in from behind the left edge: about three quarters of the head
+      // shows, the rest stays behind the edge of the screen.
+      cam.style.transform = `translate3d(${(-100 + 78 * shown).toFixed(1)}%, 0, 0)`;
+      cam.style.visibility = shown <= 0.001 ? "hidden" : "visible";
+    };
+
+    const catchIt = (now: number) => {
+      const fromPeek = mode === "peek" || mode === "rise";
+      caughtEl = fromPeek ? pk : hop;
+      const r = caughtEl.getBoundingClientRect();
+      caughtEl.classList.add("is-caught");
+      say(lines.current.caught, now, { x: r.left + r.width / 2, y: r.top + (fromPeek ? r.height * 0.1 : 0), side: "above" });
+      set("caught", now);
+    };
+
     const loop = (ms: number) => {
       raf = requestAnimationFrame(loop);
       const now = ms / 1000;
+      drawBubble(now);
+
+      if (tapped.current) {
+        tapped.current = false;
+        if (mode === "peek" || mode === "rise" || mode === "hop" || mode === "dive") catchIt(now);
+      }
 
       const y = scroll.y;
       if (Math.abs(y - lastY) > 0.5) lastMove = now;
@@ -290,6 +398,64 @@ export function RabbitGuide({ label }: { label: string }) {
           if (t >= 1) set(next === "rise" && allowed ? "rise" : "gone", now);
           break;
         }
+
+        // --- caught ---------------------------------------------------------
+        // Frozen where it was grabbed, trembling, saying its line.
+        case "caught":
+          if (age >= typedFor(lines.current.caught) + CAUGHT_HOLD) {
+            caughtEl?.classList.add("is-glitching");
+            hush();
+            set("vanish", now);
+          }
+          break;
+
+        case "vanish":
+          if (age >= VANISH) {
+            if (caughtEl) {
+              caughtEl.classList.remove("is-caught", "is-glitching");
+              if (caughtEl === hop) placeHopper(x, -80, 0, dirX, false);
+            }
+            placePeeker(1);
+            caughtEl = null;
+            set("cameoIn", now);
+          }
+          break;
+
+        case "cameoIn": {
+          const t = clamp(age / CAMEO_IN, 0, 1);
+          placeCameo(easeOutBack(t));
+          if (t >= 1) {
+            const all = lines.current.cameo;
+            const text = all.length ? all[cameoLine % all.length] : "";
+            cameoLine++;
+            const r = cam.getBoundingClientRect();
+            say(text, now, { x: r.right + 6, y: r.top + r.height * 0.62, side: "right" });
+            set("cameoTalk", now);
+          }
+          break;
+        }
+
+        case "cameoTalk":
+          if (age >= typedFor(bubbleText) + CAMEO_HOLD) {
+            hush();
+            set("cameoOut", now);
+          }
+          break;
+
+        case "cameoOut": {
+          const t = clamp(age / CAMEO_OUT, 0, 1);
+          placeCameo(1 - easeIn(t));
+          if (t >= 1) {
+            bubbleText = "";
+            bub.style.visibility = "hidden";
+            set("rest", now);
+          }
+          break;
+        }
+
+        case "rest":
+          if (age >= REST) set("gone", now);
+          break;
       }
     };
     raf = requestAnimationFrame(loop);
@@ -301,31 +467,42 @@ export function RabbitGuide({ label }: { label: string }) {
     };
   }, []);
 
-  // Follow it: to the next section that starts below the top of the screen.
-  const follow = () => {
-    const sections = Array.from(document.querySelectorAll<HTMLElement>("main section[id]"));
-    const target = sections.find((s) => s.getBoundingClientRect().top > 96);
-    if (target) scrollToElement(target, false);
+  // Grabbing at it: pointerdown on the hopper, which is moving too fast for a
+  // click to land reliably; a normal click (or Enter) on the peeking head.
+  const grab = () => {
+    tapped.current = true;
   };
 
   return (
     <div className="rabbit-guide pointer-events-none fixed inset-0 z-40 overflow-hidden">
       <div ref={shadow} className="rabbit-guide-shadow" aria-hidden="true" />
-      <div ref={hopper} className="rabbit-guide-hopper" aria-hidden="true">
+      <button
+        ref={hopper}
+        type="button"
+        tabIndex={-1}
+        aria-hidden="true"
+        onPointerDown={grab}
+        className="rabbit-guide-hopper"
+      >
         <div ref={body} className="h-full w-full">
           <RabbitGlyph className="h-full w-full" />
         </div>
-      </div>
+      </button>
       <button
         ref={peeker}
         type="button"
-        onClick={follow}
+        onClick={grab}
         tabIndex={-1}
         aria-label={label}
         className="rabbit-guide-peeker pointer-events-auto"
       >
         <RabbitFace />
       </button>
+      {/* The real one, from the top-left corner. */}
+      <div ref={cameoEl} className="rabbit-guide-cameo" aria-hidden="true">
+        <RabbitFace />
+      </div>
+      <div ref={bubble} className="rabbit-bubble" role="status" aria-live="polite" />
     </div>
   );
 }

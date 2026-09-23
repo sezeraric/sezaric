@@ -36,7 +36,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
 
       <ScrollProgress />
       <Nav d={d} locale={l} />
-      <RabbitGuide label={d.hero.followRabbit} />
+      <RabbitGuide label={d.hero.followRabbit} caught={d.rabbit.caught} cameo={d.rabbit.cameo} />
 
       <main>
         <Hero d={d} />

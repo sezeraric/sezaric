@@ -46,6 +46,14 @@ export const tr: Dictionary = {
   ],
 
   hero: { scroll: "Kaydır", followRabbit: "Beyaz tavşanı takip et" },
+  rabbit: {
+    caught: "Yakalandım! Oops… kodlar düzgün çalışmıyor.",
+    cameo: [
+      "Déjà vu mu yaşadın? Matrix'te bir glitch'ti o. Gerçek tavşan benim.",
+      "Beni yakalayamazsın, Neo. Ama takip edebilirsin.",
+      "Kaşık yok. Tavşan da yok. Ama işte buradayım.",
+    ],
+  },
 
   bullets: [
     { label: "ANR", detail: "Android'i donduran ana iş parçacığı kilitleri" },

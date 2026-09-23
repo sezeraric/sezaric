@@ -21,7 +21,7 @@ try {
     { stdio: "inherit" },
   );
 
-  const { phase, rainIntensity, backdropPresence, stageAt, cardMotion, WIREFRAME_DONE, FIRE_AT } =
+  const { phase, rainIntensity, backdropPresence, stageAt, cardMotion, WIREFRAME_DONE, FIRE_AT, CLIP_START } =
     await import(pathToFileURL(out).href);
 
   // The approach: section rising into view, pin not started yet (p is still 0).
@@ -85,12 +85,16 @@ try {
   const stage = [];
   for (const p of [0, 0.05, 0.2, 0.4, 0.6, 0.735, 0.8, 0.9, 1]) {
     const c = stageAt(p, ROLES);
-    stage.push({ p, roleT: +c.roleT.toFixed(2), clip: +c.clip.toFixed(3), reveal: +c.reveal.toFixed(2) });
+    stage.push({ p, roleT: +c.roleT.toFixed(2), clip: +c.clip.toFixed(3), figure: +c.figure.toFixed(2), reveal: +c.reveal.toFixed(2) });
   }
   console.log("Experience stage:");
   console.table(stage);
 
-  if (stageAt(0, ROLES).clip > 1e-6) fail.push("clip not at its first frame when the stage pins");
+  if (Math.abs(stageAt(0, ROLES).clip - CLIP_START) > 1e-6) fail.push("clip not at CLIP_START when the stage pins");
+  // The figure is invisible until the first card has fired and its threads
+  // have had time to land, and fully there well before the second card.
+  if (stageAt(FIRE_AT / (ROLES + 1.8), ROLES).figure > 1e-6) fail.push("figure visible before the first threads land");
+  if (stageAt(0.8 / (ROLES + 1.8), ROLES).figure < 0.999) fail.push("figure not in by the end of the first role");
   // The wireframe is complete exactly when the last role has been read...
   const lastRole = ROLES / (ROLES + 1.8);
   if (Math.abs(stageAt(lastRole, ROLES).clip - WIREFRAME_DONE) > 1e-6) fail.push("wireframe not complete after the last role");

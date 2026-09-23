@@ -41,7 +41,13 @@ const HOLD = 0.5;
 const FADE = 1.0;
 
 type Thread = { x0: number; y0: number; x1: number; y1: number; bend: number; delay: number };
-type Volley = { born: number; threads: Thread[]; end: number };
+type Volley = {
+  born: number;
+  threads: Thread[];
+  end: number;
+  /** Set when a newer web has taken over: the age at which this one started letting go. */
+  cut?: number;
+};
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -135,26 +141,51 @@ export function ExperienceStage({
       const bandY = f.top + f.height * (0.88 - 0.64 * ((i + 0.5) / n)) - base.top;
       const bandH = ((f.height * 0.64) / n) * 0.8;
       const bodyX = f.left + f.width * 0.5 - base.left;
-      const bodyW = f.width * (i === 0 ? 0.12 : 0.2);
+      // Half-width of the body at that band, as a share of the clip: narrow at
+      // the feet, widest at the coat, narrowest at the head.
+      const PROFILE = [0.11, 0.19, 0.21, 0.17, 0.08];
+      const bodyW = f.width * PROFILE[Math.min(PROFILE.length - 1, Math.floor(((i + 0.5) / n) * PROFILE.length))];
 
+      /*
+       * An ordered fan, not a tangle: thread k leaves from position u along
+       * the lit edge and lands at the same relative position across the band,
+       * so no two threads cross. Each bows outward — the left half to the
+       * left, the right half to the right, more the further out it starts —
+       * which draws the oval of a web rather than a knot under the card. The
+       * cross-strands strung between neighbours below make its rings.
+       */
       const threads: Thread[] = [];
       for (let k = 0; k < count; k++) {
         const u = (k + 0.5) / count;
+        const off = u - 0.5; // -0.5 .. 0.5, left to right (top to bottom on a wide screen)
         // Out of the lit edge: the bottom of the card on a phone, where the
         // figure stands below it; its right edge on a wide screen.
         const x0 = wide ? c.right - base.left : c.left - base.left + c.width * (0.1 + 0.8 * u);
         const y0 = wide ? c.top - base.top + c.height * (0.12 + 0.76 * u) : c.bottom - base.top;
-        const side = k % 2 === 0 ? 1 : -1;
+        const x1 = wide ? bodyX + (Math.random() - 0.5) * bodyW : bodyX + off * 2 * bodyW;
+        const y1 = wide ? bandY + off * bandH * 1.6 : bandY + (Math.random() - 0.5) * bandH * 0.5;
+        // arc() pushes the midpoint along (-dy, dx): for a thread heading
+        // down a positive bend bows it left, for one heading right it bows it
+        // down. So the left (top) half gets the sign that bows it outward.
+        const bend = (wide ? off : -off) * 0.9;
         threads.push({
           x0,
           y0,
-          x1: bodyX + (Math.random() - 0.5) * 2 * bodyW,
-          y1: bandY + (Math.random() - 0.5) * bandH,
-          bend: side * (0.24 + Math.random() * 0.3),
-          delay: k * STAGGER + Math.random() * 0.06,
+          x1,
+          y1,
+          bend,
+          // From the middle out, so the fan opens rather than sweeping across.
+          delay: Math.abs(off) * 2 * STAGGER * count * 0.5 + Math.random() * 0.03,
         });
       }
-      const last = threads[threads.length - 1].delay;
+      const last = Math.max(...threads.map((th) => th.delay));
+      // A new web replaces the one before it: the old one lets go quickly
+      // instead of piling up into a tangle over the figure.
+      for (const v of volleys) {
+        const age = now - v.born;
+        v.end = Math.min(v.end, age + 0.35);
+        v.cut = age;
+      }
       volleys.push({ born: now, threads, end: last + TRAVEL + HOLD + FADE });
 
       card.classList.remove("is-firing");
@@ -196,7 +227,8 @@ export function ExperienceStage({
           }
           const head = easeOut(Math.min(1, local));
           const fadeFrom = t.delay + TRAVEL + HOLD;
-          const a = age < fadeFrom ? 1 : Math.max(0, 1 - (age - fadeFrom) / FADE);
+          let a = age < fadeFrom ? 1 : Math.max(0, 1 - (age - fadeFrom) / FADE);
+          if (v.cut !== undefined) a *= Math.max(0, 1 - (age - v.cut) / 0.35);
           heads.push(head);
           alphas.push(a);
           if (a <= 0.01) return;
@@ -274,6 +306,7 @@ export function ExperienceStage({
       const s = stageAt(progress, n);
       clip.current = s.clip;
       st.style.setProperty("--reveal", s.reveal.toFixed(4));
+      if (figure.current) figure.current.style.opacity = s.figure.toFixed(3);
 
       for (let i = 0; i < n; i++) {
         const card = cards.current[i];
@@ -302,17 +335,21 @@ export function ExperienceStage({
         heading.current.style.transform = `translate3d(0, ${((1 - s.reveal) * 24).toFixed(1)}px, 0)`;
       }
 
-      // A card fires as it arrives. Scrolling back above it re-arms it.
+      // A card fires as it arrives. Scrolling back above it re-arms it. A
+      // fast scroll that crosses several cards in one frame fires only the
+      // one now on screen — the rest are passed, not thrown all at once.
       if (!armed) armed = Array.from({ length: n }, (_, i) => s.roleT - i < FIRE_AT);
+      let toFire = -1;
       for (let i = 0; i < n; i++) {
         const local = s.roleT - i;
-        if (armed[i] && local >= FIRE_AT && s.reveal < 0.5) {
+        if (armed[i] && local >= FIRE_AT) {
           armed[i] = false;
-          fire(i, now);
+          if (local < 1 && s.reveal < 0.5) toFire = i;
         } else if (!armed[i] && local < FIRE_AT - 0.08) {
           armed[i] = true;
         }
       }
+      if (toFire >= 0) fire(toFire, now);
 
       draw(now);
     };
