@@ -409,8 +409,19 @@ html.lenis, html.lenis body { height: auto; }
   height: calc(50svh + 30svh * var(--reveal));
   transform: translate3d(-50%, 0, 0);
   mix-blend-mode: lighten;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  /*
+   * Revealed outward from the focus, where the lasers meet: --fr grows by a
+   * ring with every card (see ExperienceStage). Intersected with a soft fade
+   * at the sides so no edge of the clip ever shows.
+   */
+  -webkit-mask-image:
+    radial-gradient(circle var(--fr, 1px) at var(--fx, 50%) var(--fy, 44%), #000 72%, transparent 100%),
+    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle var(--fr, 1px) at var(--fx, 50%) var(--fy, 44%), #000 72%, transparent 100%),
+    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-composite: intersect;
 }
 .exp-still { display: none; }
 
@@ -551,6 +562,8 @@ html.lenis, html.lenis body { height: auto; }
     margin: 2rem auto 0;
     transform: none;
     mix-blend-mode: normal;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
   .exp-figure video { display: none; }
   .exp-still { display: block; }

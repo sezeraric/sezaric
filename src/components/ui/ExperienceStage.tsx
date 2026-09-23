@@ -10,13 +10,14 @@ import { ScrollVideo } from "./ScrollVideo";
  * The career, as the thing he is built from.
  *
  * The section pins. Each role comes up as a card; as it arrives, its edge
- * lights and it casts a web of green threads — oval arcs fanning out both
- * ways, cross-strands strung between neighbours — onto the figure standing
- * beside it, landing on the band of the body that role builds: the first role
- * the feet, the last the head. The weave clip (public/weave.mp4, made in
- * Higgsfield from the same frame as the portrait) builds the wireframe in step.
- * After the last role the deck steps aside, the figure takes the centre and
- * the wireframe turns into the photograph.
+ * lights and it fires a fan of lasers that all meet at one point on the
+ * figure — the focus, in the middle of the chest. A core ignites there, and
+ * with every hit the figure is revealed a ring further out from that point,
+ * so after the last role he has been built outward from a single spark. The
+ * figure is the weave clip (public/weave.mp4, made in Higgsfield from the same
+ * frame as the portrait), held on its finished wireframe. After the last role
+ * the deck steps aside, the figure takes the centre and the wireframe turns
+ * into the photograph.
  *
  * Everything continuous is written to the DOM from one frame loop — nothing
  * here re-renders while scrolling. Reduced motion and no-script get the plain
@@ -35,33 +36,21 @@ const MOBILE_SRC = "/weave-mobile.mp4";
 const POSTER = "/weave-poster.jpg";
 const STILL = "/weave-last.jpg";
 
-const TRAVEL = 1.1; // seconds, a thread from the card to the figure
-const STAGGER = 0.03;
-const HOLD = 0.5;
-const FADE = 1.0;
+const EXTEND = 0.26; // seconds, a beam from the card to the focus
+const STAGGER = 0.022;
+const SUSTAIN = 0.85;
+const RETRACT = 0.3; // the beam is drawn into the focus
+/** The focus, as a fraction of the figure's box: the middle of the chest. */
+const FOCUS = { x: 0.5, y: 0.44 };
+/** Where his feet are in the clip, as a fraction of its height. */
+const BODY_FEET = 0.93;
 
-type Thread = { x0: number; y0: number; x1: number; y1: number; bend: number; delay: number };
-type Volley = {
-  born: number;
-  threads: Thread[];
-  end: number;
-  /** Set when a newer web has taken over: the age at which this one started letting go. */
-  cut?: number;
-};
+type Beam = { x0: number; y0: number; delay: number; seed: number };
+type Volley = { born: number; beams: Beam[]; hit: boolean; role: number; life: number };
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-
-/** Point on the oval arc from (x0,y0) to (x1,y1) at s: the midpoint pushed sideways by `bend`. */
-function arc(t: Thread, s: number, out: { x: number; y: number }) {
-  const dx = t.x1 - t.x0;
-  const dy = t.y1 - t.y0;
-  const cx = t.x0 + dx * 0.5 - dy * t.bend;
-  const cy = t.y0 + dy * 0.5 + dx * t.bend;
-  const u = 1 - s;
-  out.x = u * u * t.x0 + 2 * u * s * cx + s * s * t.x1;
-  out.y = u * u * t.y0 + 2 * u * s * cy + s * s * t.y1;
-}
+const easeIn = (t: number) => t * t;
 
 export function ExperienceStage({
   roles,
@@ -122,71 +111,41 @@ export function ExperienceStage({
 
     const volleys: Volley[] = [];
     let armed: boolean[] | null = null;
-    let drew = false;
     let lastCounter = -1;
-    const p = { x: 0, y: 0 };
-    const q = { x: 0, y: 0 };
+    let drew = false;
+
+    // The focus and the reveal around it, in stage coordinates.
+    const focus = { x: 0, y: 0, lx: 0, ly: 0, maxR: 1 };
+    let hits: number | null = null;
+    let radius = 0;
+    let flash = 0;
+    let lastNow = 0;
 
     const fire = (i: number, now: number) => {
       const card = cards.current[i];
-      const fig = figure.current;
-      if (!card || !fig) return;
+      if (!card) return;
       const base = st.getBoundingClientRect();
       const c = card.getBoundingClientRect();
-      const f = fig.getBoundingClientRect();
       const wide = window.innerWidth >= 768;
-      const count = wide ? 18 : 14;
+      const count = wide ? 12 : 10;
 
-      // The band of the body this role builds, feet first.
-      const bandY = f.top + f.height * (0.88 - 0.64 * ((i + 0.5) / n)) - base.top;
-      const bandH = ((f.height * 0.64) / n) * 0.8;
-      const bodyX = f.left + f.width * 0.5 - base.left;
-      // Half-width of the body at that band, as a share of the clip: narrow at
-      // the feet, widest at the coat, narrowest at the head.
-      const PROFILE = [0.11, 0.19, 0.21, 0.17, 0.08];
-      const bodyW = f.width * PROFILE[Math.min(PROFILE.length - 1, Math.floor(((i + 0.5) / n) * PROFILE.length))];
-
-      /*
-       * An ordered fan, not a tangle: thread k leaves from position u along
-       * the lit edge and lands at the same relative position across the band,
-       * so no two threads cross. Each bows outward — the left half to the
-       * left, the right half to the right, more the further out it starts —
-       * which draws the oval of a web rather than a knot under the card. The
-       * cross-strands strung between neighbours below make its rings.
-       */
-      const threads: Thread[] = [];
+      const beams: Beam[] = [];
       for (let k = 0; k < count; k++) {
         const u = (k + 0.5) / count;
-        const off = u - 0.5; // -0.5 .. 0.5, left to right (top to bottom on a wide screen)
-        // Out of the lit edge: the bottom of the card on a phone, where the
-        // figure stands below it; its right edge on a wide screen.
-        const x0 = wide ? c.right - base.left : c.left - base.left + c.width * (0.1 + 0.8 * u);
-        const y0 = wide ? c.top - base.top + c.height * (0.12 + 0.76 * u) : c.bottom - base.top;
-        const x1 = wide ? bodyX + (Math.random() - 0.5) * bodyW : bodyX + off * 2 * bodyW;
-        const y1 = wide ? bandY + off * bandH * 1.6 : bandY + (Math.random() - 0.5) * bandH * 0.5;
-        // arc() pushes the midpoint along (-dy, dx): for a thread heading
-        // down a positive bend bows it left, for one heading right it bows it
-        // down. So the left (top) half gets the sign that bows it outward.
-        const bend = (wide ? off : -off) * 0.9;
-        threads.push({
-          x0,
-          y0,
-          x1,
-          y1,
-          bend,
-          // From the middle out, so the fan opens rather than sweeping across.
-          delay: Math.abs(off) * 2 * STAGGER * count * 0.5 + Math.random() * 0.03,
+        beams.push({
+          // Out of the lit edge: the bottom of the card on a phone, where the
+          // figure stands below it; its right edge on a wide screen.
+          x0: wide ? c.right - base.left : c.left - base.left + c.width * (0.08 + 0.84 * u),
+          y0: wide ? c.top - base.top + c.height * (0.1 + 0.8 * u) : c.bottom - base.top,
+          // The middle beams first, the outer ones a beat later.
+          delay: Math.abs(u - 0.5) * count * STAGGER,
+          seed: Math.random(),
         });
       }
-      const last = Math.max(...threads.map((th) => th.delay));
-      // A new web replaces the one before it: the old one lets go quickly
-      // instead of piling up into a tangle over the figure.
-      for (const v of volleys) {
-        const age = now - v.born;
-        v.end = Math.min(v.end, age + 0.35);
-        v.cut = age;
-      }
-      volleys.push({ born: now, threads, end: last + TRAVEL + HOLD + FADE });
+      const last = Math.max(...beams.map((b) => b.delay));
+      // A new volley cuts the previous one short.
+      for (const v of volleys) v.life = Math.min(v.life, now - v.born + 0.12);
+      volleys.push({ born: now, beams, hit: false, role: i, life: last + EXTEND + SUSTAIN + RETRACT });
 
       card.classList.remove("is-firing");
       // Restart the edge's flash even if it is still running from last time.
@@ -194,11 +153,12 @@ export function ExperienceStage({
       card.classList.add("is-firing");
     };
 
-    const draw = (now: number) => {
+    const draw = (now: number, active: boolean) => {
       for (let i = volleys.length - 1; i >= 0; i--) {
-        if (now - volleys[i].born > volleys[i].end) volleys.splice(i, 1);
+        if (now - volleys[i].born > volleys[i].life) volleys.splice(i, 1);
       }
-      if (!volleys.length) {
+      const core = active && (hits ?? 0) > 0;
+      if (!volleys.length && !core && flash < 0.01) {
         if (drew) {
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.clearRect(0, 0, cv.width, cv.height);
@@ -215,75 +175,73 @@ export function ExperienceStage({
 
       for (const v of volleys) {
         const age = now - v.born;
-        const heads: number[] = [];
-        const alphas: number[] = [];
-
-        v.threads.forEach((t) => {
-          const local = (age - t.delay) / TRAVEL;
-          if (local <= 0) {
-            heads.push(0);
-            alphas.push(0);
-            return;
+        const fade = age > v.life - 0.12 ? clamp01((v.life - age) / 0.12) : 1;
+        v.beams.forEach((b) => {
+          const local = age - b.delay;
+          if (local <= 0) return;
+          const reach = easeOut(clamp01(local / EXTEND));
+          const drawIn = easeIn(clamp01((local - EXTEND - SUSTAIN) / RETRACT));
+          if (drawIn >= 1) return;
+          if (reach >= 1 && !v.hit) {
+            v.hit = true;
+            hits = Math.max(hits ?? 0, v.role + 1);
+            flash = 1;
           }
-          const head = easeOut(Math.min(1, local));
-          const fadeFrom = t.delay + TRAVEL + HOLD;
-          let a = age < fadeFrom ? 1 : Math.max(0, 1 - (age - fadeFrom) / FADE);
-          if (v.cut !== undefined) a *= Math.max(0, 1 - (age - v.cut) / 0.35);
-          heads.push(head);
-          alphas.push(a);
-          if (a <= 0.01) return;
+          const hx = b.x0 + (focus.x - b.x0) * reach;
+          const hy = b.y0 + (focus.y - b.y0) * reach;
+          const tx = b.x0 + (focus.x - b.x0) * drawIn;
+          const ty = b.y0 + (focus.y - b.y0) * drawIn;
+          // A laser hums: a fast, slight flicker, different on every beam.
+          const a = fade * (0.82 + 0.18 * Math.sin(now * 70 + b.seed * 40));
 
           ctx.beginPath();
-          const steps = 24;
-          for (let k = 0; k <= steps; k++) {
-            arc(t, (head * k) / steps, p);
-            if (k === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          }
-          ctx.strokeStyle = `rgba(40, 255, 110, ${0.2 * a})`;
-          ctx.lineWidth = 5;
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(hx, hy);
+          ctx.strokeStyle = `rgba(40, 255, 110, ${0.14 * a})`;
+          ctx.lineWidth = 8;
           ctx.stroke();
-          ctx.strokeStyle = `rgba(190, 255, 210, ${0.9 * a})`;
-          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = `rgba(60, 255, 130, ${0.45 * a})`;
+          ctx.lineWidth = 2.6;
+          ctx.stroke();
+          ctx.strokeStyle = `rgba(232, 255, 238, ${0.95 * a})`;
+          ctx.lineWidth = 1;
           ctx.stroke();
 
-          // The spark at the front, while it is still travelling.
-          if (head < 0.995) {
-            arc(t, head, p);
-            ctx.fillStyle = `rgba(230, 255, 236, ${a})`;
+          // Where it leaves the card, a small bright point.
+          if (drawIn < 0.05) {
+            ctx.fillStyle = `rgba(200, 255, 215, ${0.7 * a})`;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = `rgba(60, 255, 130, ${0.25 * a})`;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+            ctx.arc(b.x0, b.y0, 2, 0, Math.PI * 2);
             ctx.fill();
           }
         });
+      }
 
-        // The web: cross-strands between neighbouring threads, strung once
-        // both have flown past, sagging back toward the card.
-        for (let i = 0; i < v.threads.length - 1; i++) {
-          const a = Math.min(alphas[i], alphas[i + 1]) * 0.7;
-          if (a <= 0.01) continue;
-          const t0 = v.threads[i];
-          const t1 = v.threads[i + 1];
-          for (const s of [0.22, 0.42, 0.62, 0.82]) {
-            if (heads[i] < s || heads[i + 1] < s) continue;
-            arc(t0, s, p);
-            arc(t1, s, q);
-            const mx = (p.x + q.x) / 2;
-            const my = (p.y + q.y) / 2;
-            const ox = (t0.x0 + t1.x0) / 2;
-            const oy = (t0.y0 + t1.y0) / 2;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.quadraticCurveTo(mx + (ox - mx) * 0.14, my + (oy - my) * 0.14, q.x, q.y);
-            ctx.strokeStyle = `rgba(130, 255, 175, ${a * (1.05 - s * 0.6)})`;
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
-          }
-        }
+      // The core: a spark at the focus, flaring with every hit.
+      if (core || flash > 0.01) {
+        const r = 7 + 22 * flash;
+        const g = ctx.createRadialGradient(focus.x, focus.y, 0, focus.x, focus.y, r * 2.4);
+        g.addColorStop(0, `rgba(235, 255, 240, ${0.55 + 0.45 * flash})`);
+        g.addColorStop(0.22, `rgba(80, 255, 140, ${0.35 + 0.4 * flash})`);
+        g.addColorStop(1, "rgba(0, 255, 65, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(focus.x, focus.y, r * 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // The edge of what has been built so far, as it grows.
+      if (core && radius > 2) {
+        const moving = clamp01(Math.abs((hits! / n) * focus.maxR - radius) / (focus.maxR * 0.06));
+        const a = 0.1 + 0.6 * moving;
+        ctx.beginPath();
+        ctx.arc(focus.x, focus.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(40, 255, 110, ${0.18 * a})`;
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(170, 255, 200, ${0.8 * a})`;
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
       }
       ctx.globalCompositeOperation = "source-over";
     };
@@ -306,7 +264,22 @@ export function ExperienceStage({
       const s = stageAt(progress, n);
       clip.current = s.clip;
       st.style.setProperty("--reveal", s.reveal.toFixed(4));
-      if (figure.current) figure.current.style.opacity = s.figure.toFixed(3);
+
+      // Where the focus is this frame, in stage coordinates and in the
+      // figure's own (for its mask).
+      const fig = figure.current;
+      if (fig) {
+        const base = st.getBoundingClientRect();
+        const f = fig.getBoundingClientRect();
+        focus.lx = f.width * FOCUS.x;
+        focus.ly = f.height * FOCUS.y;
+        focus.x = f.left - base.left + focus.lx;
+        focus.y = f.top - base.top + focus.ly;
+        // Far enough to reach his feet — the furthest part of him from the
+        // chest — so the last card is the one that completes him. (Measured
+        // to the clip's corners instead, he was whole by the third card.)
+        focus.maxR = f.height * (BODY_FEET - FOCUS.y) * 1.04;
+      }
 
       for (let i = 0; i < n; i++) {
         const card = cards.current[i];
@@ -351,7 +324,23 @@ export function ExperienceStage({
       }
       if (toFire >= 0) fire(toFire, now);
 
-      draw(now);
+      // How much of him has been built: one ring per card whose lasers have
+      // hit. Scrolling back above a card takes its ring away again.
+      const fired = armed.reduce((sum, a) => sum + (a ? 0 : 1), 0);
+      if (hits === null) hits = fired;
+      hits = Math.min(hits, fired);
+      const dt = Math.min(0.05, Math.max(0, now - lastNow));
+      lastNow = now;
+      flash *= Math.exp(-dt * 5);
+      const target = s.reveal > 0.02 ? focus.maxR * 1.2 : (focus.maxR * hits) / n;
+      radius += (target - radius) * (1 - Math.exp(-dt * 4.5));
+      if (fig) {
+        fig.style.setProperty("--fx", `${focus.lx.toFixed(1)}px`);
+        fig.style.setProperty("--fy", `${focus.ly.toFixed(1)}px`);
+        fig.style.setProperty("--fr", `${Math.max(1, radius).toFixed(1)}px`);
+      }
+
+      draw(now, s.reveal < 0.3);
     };
     raf = requestAnimationFrame(loop);
 
@@ -382,9 +371,6 @@ export function ExperienceStage({
           {/* eslint-disable-next-line @next/next/no-img-element -- the finished picture for reduced motion, sized by CSS */}
           <img src={STILL} alt="" className="exp-still h-full w-full object-contain" loading="lazy" />
         </div>
-
-        {/* The threads: under the cards, so they come out from behind the lit edge. */}
-        <canvas ref={canvas} className="exp-threads" aria-hidden="true" />
 
         <div ref={deck} className="exp-deck">
           <div className="exp-rail" aria-hidden="true">
@@ -437,6 +423,13 @@ export function ExperienceStage({
             ))}
           </ol>
         </div>
+
+        {/*
+          The lasers, over the deck: they leave from the card's lit edge and
+          head away from it, so they never cross its text — and under the
+          card's shadow they looked as if they started a hand's width below it.
+        */}
+        <canvas ref={canvas} className="exp-threads" aria-hidden="true" />
 
         <div ref={heading} className="exp-heading shell">
           <p className="eyebrow">{reveal.eyebrow}</p>

@@ -82,12 +82,12 @@ export function rainIntensity(entry: number, bulletTime: number): number {
 export const WIREFRAME_DONE = 0.76;
 
 /**
- * Where in the clip the stage starts: the point where the feet begin to form.
- * The clip opens on a black frame with a few stray streaks, which frozen under
- * a scroll read as scratches on the screen; the cards' own threads do that job
- * here instead.
+ * Where in the clip the stage starts: the wireframe all but finished. The
+ * figure is not built by the clip here — it is revealed outward from the point
+ * where the cards' lasers meet (see ExperienceStage) — so the clip only has to
+ * supply a complete wireframe, moving a little, for that reveal to uncover.
  */
-export const CLIP_START = 0.22;
+export const CLIP_START = 0.68;
 
 /** Pinned screens given to the reveal after the last role. */
 export const REVEAL_SEGMENTS = 1.8;
@@ -102,11 +102,6 @@ export type Stage = {
   reveal: number;
   /** 0..1 — where the weave clip is. */
   clip: number;
-  /**
-   * 0..1 — the figure's own opacity. Nothing of it shows until the first
-   * card's threads have landed; it appears where they land.
-   */
-  figure: number;
 };
 
 export function stageAt(p: number, roles: number): Stage {
@@ -121,7 +116,6 @@ export function stageAt(p: number, roles: number): Stage {
       CLIP_START +
       (WIREFRAME_DONE - CLIP_START) * (roleT / n) +
       (1 - WIREFRAME_DONE) * smoothstep(r, 0.15, 0.75),
-    figure: smoothstep(roleT, 0.3, 0.7),
   };
 }
 
