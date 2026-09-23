@@ -195,14 +195,15 @@ html.lenis, html.lenis body { height: auto; }
 @media (scripting: enabled) {
   [data-reveal="pending"] {
     opacity: 0;
-    transform: translate3d(0, 1.5rem, 0);
+    transform: translate3d(0, 1.75rem, 0) scale(0.985);
   }
 }
 
 [data-reveal] {
   transition:
-    opacity 0.85s var(--ease-out-expo),
-    transform 0.85s var(--ease-out-expo);
+    opacity 1s var(--ease-out-expo),
+    transform 1.1s var(--ease-out-expo);
+  transform-origin: 50% 100%;
 }
 
 [data-reveal="shown"] {
@@ -378,31 +379,315 @@ html.lenis, html.lenis body { height: auto; }
   .fan[data-reveal="pending"] .fan-right { transform: translate3d(-38%, 5%, 0) rotate(0deg); }
 }
 
-/* ---- the woven figure ---------------------------------------------------- */
+/* ---- the experience stage ------------------------------------------------ */
 
 /*
- * The weave clip is on pure black; `lighten` lets that black fall away into
- * the page so only the threads and the figure show.
+ * One pinned screen per role plus the reveal. --exp-segments comes from the
+ * component; each segment is most of a screen of scrolling.
  */
-.weave { mix-blend-mode: lighten; }
+.exp-track {
+  position: relative;
+  height: calc(100svh + var(--exp-segments, 6.8) * 88svh);
+}
 
-.weave-clip {
+.exp-stage {
+  --reveal: 0;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  /* Opaque, so the clip's black can be blended away against it. */
+  background: var(--color-ink);
+}
+
+.exp-figure {
   position: absolute;
   bottom: 0;
   left: 50%;
   aspect-ratio: 9 / 16;
-  /* A phone: standing at the bottom, the cards sliding over it. */
-  height: 82svh;
+  /* A phone: under the deck, growing into the reveal. */
+  height: calc(50svh + 30svh * var(--reveal));
   transform: translate3d(-50%, 0, 0);
-  /* No hard edge anywhere the threads run off the clip. */
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  mix-blend-mode: lighten;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+.exp-still { display: none; }
+
+.exp-threads {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.exp-deck {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(4rem + 0.75rem);
+  padding-inline: var(--gutter, 1.25rem);
+}
+
+.exp-rail { display: flex; align-items: center; gap: 0.9rem; }
+.exp-counter { font-size: 11px; letter-spacing: 0.14em; color: var(--color-mx); }
+.exp-segments { display: flex; flex: 1; gap: 4px; }
+.exp-segments > li { flex: 1; }
+.exp-segment {
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--color-line);
+}
+.exp-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-mx);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+.exp-segment-label { display: none; }
+
+.exp-cards { position: relative; margin-top: 0.9rem; }
+.exp-card {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: var(--color-ink);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+.exp-card:first-child { opacity: 1; visibility: visible; }
+.exp-points { font-size: 0.9rem; line-height: 1.5; }
+
+/* The edge the threads leave from: the bottom on a phone. */
+.exp-emitter {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-mx), transparent);
+  opacity: 0.45;
+}
+.exp-card.is-firing .exp-emitter { animation: exp-emit 1s var(--ease-out-expo); }
+@keyframes exp-emit {
+  0%   { opacity: 1; box-shadow: 0 0 18px 3px rgba(53, 255, 119, 0.85); }
+  100% { opacity: 0.45; box-shadow: 0 0 0 0 rgba(53, 255, 119, 0); }
+}
+
+.exp-heading {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(4rem + 1.75rem);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-height: 740px) {
+  .exp-points { font-size: 0.82rem; line-height: 1.45; }
+  .exp-card { padding: 0.8rem 0.95rem 0.9rem; }
 }
 
 @media (min-width: 768px) {
-  .weave-clip {
-    height: 100svh;
-    /* --weave-shift: 1 beside the copy on the right, 0 centre stage. */
-    transform: translate3d(calc(-50% + var(--weave-shift, 1) * 25vw), 0, 0);
+  .exp-figure {
+    height: 96svh;
+    /* Beside the deck, then centre stage for the reveal. */
+    left: calc(72% - 22% * var(--reveal));
   }
+  .exp-deck {
+    top: 50%;
+    right: auto;
+    width: min(34rem, 50vw);
+    margin-left: max(var(--gutter, 1.5rem), calc((100vw - 76rem) / 2));
+    padding-inline: 0;
+    transform: translateY(-50%);
+  }
+  .exp-cards { min-height: 21rem; margin-top: 1.4rem; }
+  .exp-card { padding: 1.6rem 1.75rem 1.7rem; }
+  .exp-points { font-size: 0.97rem; }
+  .exp-segments { gap: 6px; }
+  .exp-segments > li { display: flex; flex-direction: column; gap: 0.5rem; }
+  .exp-segment-label {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--color-text-faint);
+  }
+  /* The edge the threads leave from: the right, facing the figure. */
+  .exp-emitter {
+    left: auto;
+    right: -1px;
+    top: 10%;
+    bottom: 10%;
+    width: 1px;
+    height: auto;
+    background: linear-gradient(180deg, transparent, var(--color-mx), transparent);
+  }
+}
+
+/*
+ * No pinning where the motion is unwanted or cannot run: the roles as a plain
+ * list and the finished photograph beneath them.
+ */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .exp-track { height: auto; }
+  .exp-stage { position: relative; height: auto; overflow: visible; background: none; }
+  .exp-figure {
+    position: relative;
+    left: auto;
+    height: 70svh;
+    margin: 2rem auto 0;
+    transform: none;
+    mix-blend-mode: normal;
+  }
+  .exp-figure video { display: none; }
+  .exp-still { display: block; }
+  .exp-threads, .exp-rail, .exp-heading { display: none; }
+  .exp-deck { position: relative; top: auto; transform: none; width: auto; margin: 0; padding-inline: var(--gutter, 1.25rem); }
+  .exp-cards { display: grid; gap: 1rem; min-height: 0; }
+  .exp-card { position: relative; opacity: 1; visibility: visible; }
+}
+
+/* ---- the rabbit guide ---------------------------------------------------- */
+
+.rabbit-guide-hopper {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 46px;
+  height: 46px;
+  opacity: 0;
+  will-change: transform;
+  filter: drop-shadow(0 0 8px rgba(53, 255, 119, 0.35));
+}
+.rabbit-guide-shadow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 37px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(53, 255, 119, 0.4), transparent);
+  opacity: 0;
+}
+.rabbit-guide-peeker {
+  position: absolute;
+  bottom: env(safe-area-inset-bottom, 0px);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  visibility: hidden;
+  transform: translate3d(0, 107%, 0);
+  filter: drop-shadow(0 0 10px rgba(53, 255, 119, 0.3));
+  -webkit-tap-highlight-color: transparent;
+}
+.rabbit-guide-peeker:focus-visible { outline: 1px solid var(--color-mx); outline-offset: 4px; }
+.rabbit-guide-peeker svg { transform-origin: 50% 100%; animation: rabbit-sway 3.8s ease-in-out infinite; }
+
+@media (min-width: 768px) {
+  .rabbit-guide-hopper { width: 58px; height: 58px; }
+  .rabbit-guide-shadow { width: 46px; }
+}
+
+.rabbit-eyes { transform-box: fill-box; transform-origin: 50% 50%; animation: rabbit-blink 4.6s infinite; }
+.rabbit-pupils { transition: transform 0.25s ease-out; }
+.rabbit-peek-ear-l { transform-box: fill-box; transform-origin: 50% 100%; animation: rabbit-ear-l 5.3s ease-in-out infinite; }
+
+@keyframes rabbit-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.1); }
+  96% { transform: scaleY(1); }
+}
+@keyframes rabbit-ear-l {
+  0%, 70%, 100% { transform: rotate(0); }
+  76% { transform: rotate(-9deg); }
+  82% { transform: rotate(2deg); }
+}
+@keyframes rabbit-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rabbit-guide { display: none; }
+}
+
+/* ---- scroll-linked touches ------------------------------------------------ */
+
+/*
+ * Driven by the scroll position itself (CSS scroll-driven animations), so they
+ * run on the compositor and cost no JavaScript at all. Browsers without the
+ * feature simply do without: nothing here carries meaning.
+ */
+
+/* Reading progress: a hairline along the top of the screen (see ScrollProgress). */
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--color-mx-dim), var(--color-mx));
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.55);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress { display: none; }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* The portrait drifts a little against the scroll, for depth. */
+    .parallax-soft {
+      animation: parallax-soft linear both;
+      animation-timeline: view();
+      animation-range: entry 0% exit 100%;
+    }
+    @keyframes parallax-soft {
+      from { transform: translate3d(0, 28px, 0); }
+      to   { transform: translate3d(0, -28px, 0); }
+    }
+
+    /*
+     * The screens fan opens with the scroll rather than all at once: folded
+     * behind the middle phone as the row comes up, fully spread by the time
+     * it is in the middle of the screen.
+     */
+    .fan-left {
+      animation: fan-open-left linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 45%;
+    }
+    .fan-right {
+      animation: fan-open-right linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 45%;
+    }
+    @keyframes fan-open-left {
+      from { transform: translate3d(38%, 5%, 0) rotate(0deg); }
+      to   { transform: translate3d(0, 5%, 0) rotate(var(--fan-tilt, -5deg)); }
+    }
+    @keyframes fan-open-right {
+      from { transform: translate3d(-38%, 5%, 0) rotate(0deg); }
+      to   { transform: translate3d(0, 5%, 0) rotate(calc(var(--fan-tilt, -5deg) * -1)); }
+    }
+  }
+}
+
+@media (min-width: 640px) {
+  .fan-left, .fan-right { --fan-tilt: -7deg; }
 }

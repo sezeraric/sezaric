@@ -33,7 +33,7 @@ export function About({ d }: { d: Dictionary }) {
               width={828}
               height={1289}
               sizes="(max-width: 768px) 45vw, 18rem"
-              className="mt-6 w-40 max-w-full sm:w-44 md:w-full"
+              className="parallax-soft mt-6 w-40 max-w-full sm:w-44 md:w-full"
             />
           </div>
         </Reveal>

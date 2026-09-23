@@ -68,34 +68,55 @@ export function rainIntensity(entry: number, bulletTime: number): number {
 
 
 /**
- * How present the woven figure is on the page, 0..1.
+ * The experience stage.
  *
- * `entry` rises as the experience section approaches; `exit` rises once the
- * reveal has finished and the page moves on. The figure is only ever there
- * for these two sections.
- */
-export function figurePresence(entry: number, exit: number): number {
-  return smoothstep(entry, 0, 0.35) * (1 - smoothstep(exit, 0.15, 0.85));
-}
-
-/**
- * Where the weave clip is, 0..1, from the two sections that drive it.
+ * The section pins, and its scroll budget is split into one segment per role
+ * followed by the reveal. In each role's segment its card comes in, fires its
+ * threads at the figure (see FIRE_AT), and is read; the weave clip builds the
+ * figure feet first across all the roles, then the reveal turns the finished
+ * wireframe into the photograph and holds it.
  *
- * The clip (public/weave.mp4) has two acts: green threads stream in and build
- * a wireframe of the figure feet first, and then the wireframe turns into the
- * photograph. WIREFRAME_DONE is where the first act ends in the clip.
- *
- * The experience section plays the first act — the figure is built while the
- * career is read — and the reveal section plays the second, finishing early
- * enough that the finished picture holds for the rest of the pin.
+ * WIREFRAME_DONE is where, in public/weave.mp4, the wireframe is complete and
+ * the photograph starts to come through.
  */
 export const WIREFRAME_DONE = 0.76;
 
-export function weaveProgress(experience: number, reveal: number): number {
-  return WIREFRAME_DONE * clamp01(experience) + (1 - WIREFRAME_DONE) * smoothstep(reveal, 0.1, 0.75);
+/** Pinned screens given to the reveal after the last role. */
+export const REVEAL_SEGMENTS = 1.8;
+
+/** Where in its own segment a card throws its threads: once it has arrived. */
+export const FIRE_AT = 0.16;
+
+export type Stage = {
+  /** 0..roles: which role, and how far through it. */
+  roleT: number;
+  /** 0..1 — the deck stepping aside and the heading coming in. */
+  reveal: number;
+  /** 0..1 — where the weave clip is. */
+  clip: number;
+};
+
+export function stageAt(p: number, roles: number): Stage {
+  const n = Math.max(1, roles);
+  const t = clamp01(p) * (n + REVEAL_SEGMENTS);
+  const roleT = Math.min(t, n);
+  const r = clamp01((t - n) / REVEAL_SEGMENTS);
+  return {
+    roleT,
+    reveal: smoothstep(r, 0, 0.3),
+    clip: WIREFRAME_DONE * (roleT / n) + (1 - WIREFRAME_DONE) * smoothstep(r, 0.15, 0.75),
+  };
 }
 
-/** 0..1 — the figure walking from its spot beside the copy to the centre, at the start of the reveal. */
-export function revealMove(reveal: number): number {
-  return smoothstep(reveal, 0, 0.3);
+/**
+ * One card's entrance and exit within the deck, each 0..1. A card comes up
+ * from below at the start of its segment and leaves upward at the end of it;
+ * the last card stays until the reveal clears the whole deck.
+ */
+export function cardMotion(roleT: number, i: number, roles: number): { enter: number; exit: number } {
+  const local = roleT - i;
+  return {
+    enter: smoothstep(local, 0, FIRE_AT),
+    exit: i >= roles - 1 ? 0 : smoothstep(local, 0.9, 1),
+  };
 }

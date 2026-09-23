@@ -21,7 +21,7 @@ try {
     { stdio: "inherit" },
   );
 
-  const { phase, rainIntensity, backdropPresence, figurePresence, weaveProgress, revealMove, WIREFRAME_DONE } =
+  const { phase, rainIntensity, backdropPresence, stageAt, cardMotion, WIREFRAME_DONE, FIRE_AT } =
     await import(pathToFileURL(out).href);
 
   // The approach: section rising into view, pin not started yet (p is still 0).
@@ -80,35 +80,50 @@ try {
   if (rainIntensity(1, 0.5) > 0.4) fail.push("rain too strong over the clip");
   if (rainIntensity(1, 1) > 0.2) fail.push("rain too strong over body copy");
 
-  // --- the woven figure ---------------------------------------------------
-  const weave = [];
-  for (const [e, r] of [[0, 0], [0.5, 0], [1, 0], [1, 0.1], [1, 0.4], [1, 0.75], [1, 1]]) {
-    weave.push({ experience: e, reveal: r, clip: +weaveProgress(e, r).toFixed(3), move: +revealMove(r).toFixed(2) });
+  // --- the experience stage ------------------------------------------------
+  const ROLES = 5;
+  const stage = [];
+  for (const p of [0, 0.05, 0.2, 0.4, 0.6, 0.735, 0.8, 0.9, 1]) {
+    const c = stageAt(p, ROLES);
+    stage.push({ p, roleT: +c.roleT.toFixed(2), clip: +c.clip.toFixed(3), reveal: +c.reveal.toFixed(2) });
   }
-  console.log("Weave clip:");
-  console.table(weave);
+  console.log("Experience stage:");
+  console.table(stage);
 
-  if (weaveProgress(0, 0) > 1e-6) fail.push("clip not at its first frame before the experience section");
-  // The wireframe is finished exactly as the career has been read...
-  if (Math.abs(weaveProgress(1, 0) - WIREFRAME_DONE) > 1e-6) fail.push("wireframe not complete at the end of the experience section");
-  // ...and it never runs backwards as you keep scrolling.
-  let last = -1;
-  for (let i = 0; i <= 200; i++) {
-    const t = i / 200;
-    const v = i <= 100 ? weaveProgress(t * 2, 0) : weaveProgress(1, (t - 0.5) * 2);
-    if (v < last - 1e-9) { fail.push(`clip runs backwards at step ${i}`); break; }
-    last = v;
+  if (stageAt(0, ROLES).clip > 1e-6) fail.push("clip not at its first frame when the stage pins");
+  // The wireframe is complete exactly when the last role has been read...
+  const lastRole = ROLES / (ROLES + 1.8);
+  if (Math.abs(stageAt(lastRole, ROLES).clip - WIREFRAME_DONE) > 1e-6) fail.push("wireframe not complete after the last role");
+  // ...the clip never runs backwards...
+  {
+    let last = -1;
+    for (let i = 0; i <= 400; i++) {
+      const v = stageAt(i / 400, ROLES).clip;
+      if (v < last - 1e-9) { fail.push(`clip runs backwards at p=${i / 400}`); break; }
+      last = v;
+    }
   }
-  // The photograph is in, and holds, well before the pin lets go.
-  if (weaveProgress(1, 0.75) < 0.999) fail.push("photograph not fully in by three quarters of the reveal");
-  // It reaches the centre before it starts turning into the photograph.
-  if (revealMove(0.3) < 0.999) fail.push("still walking to the centre as the reveal plays");
-  if (weaveProgress(1, 0.1) - WIREFRAME_DONE > 1e-6) fail.push("reveal starts before the figure is centred");
+  // ...and the photograph is fully in, and held, before the pin lets go.
+  if (stageAt(0.97, ROLES).clip < 0.999) fail.push("photograph not held at the end of the stage");
+  if (stageAt(lastRole, ROLES).reveal > 1e-6) fail.push("deck stepping aside before the last role is read");
 
-  // Present only for its two sections.
-  if (figurePresence(0, 0) > 1e-6) fail.push("figure visible before the experience section");
-  if (figurePresence(1, 0) < 0.999) fail.push("figure not fully present through the experience section");
-  if (figurePresence(1, 1) > 1e-6) fail.push("figure still visible after the reveal");
+  // Cards: never more than two on screen at once, and each is fully shown
+  // for most of its own segment.
+  for (let i = 0; i <= 500; i++) {
+    const roleT = (i / 500) * ROLES;
+    let visible = 0;
+    for (let k = 0; k < ROLES; k++) {
+      const m = cardMotion(roleT, k, ROLES);
+      if (m.enter * (1 - m.exit) > 0.02) visible++;
+    }
+    if (visible > 2) { fail.push(`${visible} cards on screen at roleT=${roleT.toFixed(2)}`); break; }
+  }
+  for (let k = 0; k < ROLES; k++) {
+    const m = cardMotion(k + 0.5, k, ROLES);
+    if (m.enter < 0.999 || m.exit > 1e-6) fail.push(`card ${k} not fully shown mid-segment`);
+    // It fires once it has arrived.
+    if (cardMotion(k + FIRE_AT, k, ROLES).enter < 0.999) fail.push(`card ${k} fires before it has arrived`);
+  }
 
   if (fail.length) {
     console.error("FAIL:\n - " + fail.join("\n - "));
