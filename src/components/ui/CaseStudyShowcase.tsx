@@ -26,6 +26,83 @@ export type Shot = { src: string; alt: string; caption: string };
  * failure inside the canvas. The screenshots are the content; the scene is a
  * way of presenting them, and it never gets to be the reason they are missing.
  */
+/** Pre-rendered turns of the scan, in scroll order. */
+const TURNS = ["/figure/turn-0.webp", "/figure/turn-1.webp", "/figure/turn-2.webp", "/figure/turn-3.webp"];
+
+/**
+ * The scan, for devices that do not get the 3D scene.
+ *
+ * Same model, rendered offline (see src/app/[locale]/figure-shots) to four
+ * transparent frames of a slow turn. A phone gets the figure standing behind
+ * the screenshots and turning as they scroll past it, which is what the canvas
+ * does — without a second WebGL context, which is what made iOS kill the tab.
+ */
+function FigureTurn() {
+  const host = useRef<HTMLDivElement>(null);
+  const [frame, setFrame] = useState(0);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+
+    // Nothing runs, and nothing is fetched, until the section is close.
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), {
+      rootMargin: "40% 0px",
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = host.current;
+    if (!el || !near) return;
+    let raf = 0;
+    let last = -1;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      const rect = el.getBoundingClientRect();
+      // How far the column has travelled through the viewport, 0..1.
+      const span = rect.height + window.innerHeight;
+      const p = Math.min(Math.max((window.innerHeight - rect.top) / span, 0), 1);
+      const i = Math.min(Math.floor(p * TURNS.length), TURNS.length - 1);
+      if (i !== last) {
+        last = i;
+        setFrame(i);
+      }
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [near]);
+
+  return (
+    <div
+      ref={host}
+      className="pointer-events-none absolute inset-0 flex justify-start sm:justify-center"
+      aria-hidden="true"
+    >
+      {/* Narrow screens stand him to the left of the column so he is not
+          simply hidden behind an opaque screenshot; wide ones have room for
+          him to stand behind the row. */}
+      <div className="sticky top-[18vh] -ml-6 h-[56vh] w-[46%] max-w-[13rem] sm:ml-0 sm:h-[62vh] sm:w-full sm:max-w-sm">
+        {near &&
+          TURNS.map((src, i) => (
+            <Image
+              key={src}
+              src={src}
+              alt=""
+              width={320}
+              height={800}
+              sizes="20rem"
+              className="absolute inset-0 m-auto h-full w-auto transition-opacity duration-500"
+              style={{ opacity: i === frame ? 0.75 : 0 }}
+            />
+          ))}
+      </div>
+    </div>
+  );
+}
+
 export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: string }) {
   const section = useRef<HTMLDivElement>(null);
   const state = useRef<ShowcaseState>({ progress: 0 });
@@ -116,9 +193,10 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
 
   if (!use3d) {
     return (
-      <div>
-        <p className="eyebrow">{label}</p>
-        <ul className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-5">
+      <div className="relative">
+        <p className="eyebrow relative z-10">{label}</p>
+        {!reduced && <FigureTurn />}
+        <ul className="relative mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-5">
           {shots.map((shot) => (
             <li key={shot.src}>
               <figure className="h-full">
@@ -128,9 +206,9 @@ export function CaseStudyShowcase({ shots, label }: { shots: Shot[]; label: stri
                   width={720}
                   height={1566}
                   sizes="(max-width: 640px) 70vw, 20rem"
-                  className="mx-auto w-[70%] rounded-xl border border-line sm:w-full"
+                  className="ml-auto mr-0 w-[64%] rounded-xl border border-line bg-ink shadow-[0_0_40px_rgba(0,0,0,0.85)] sm:mx-auto sm:w-full"
                 />
-                <figcaption className="mt-3 text-center font-mono text-[11px] leading-relaxed text-text-faint sm:text-left">
+                <figcaption className="ml-auto mt-3 max-w-[64%] text-right font-mono text-[11px] leading-relaxed text-text-faint sm:max-w-none sm:text-left">
                   {shot.caption}
                 </figcaption>
               </figure>

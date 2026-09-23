@@ -22,6 +22,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals and files with an extension.
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  // Everything except Next internals, API routes, and files with an extension.
+  matcher: ["/((?!_next|api|.*\\..*).*)"],
 };
