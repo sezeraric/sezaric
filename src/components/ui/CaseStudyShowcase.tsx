@@ -73,7 +73,14 @@ function FigureTurn() {
       const rect = el.getBoundingClientRect();
       // How far the column has travelled through the viewport, 0..1.
       const span = rect.height + window.innerHeight;
-      const p = Math.min(Math.max((window.innerHeight - rect.top) / span, 0), 1);
+      const travelled = (window.innerHeight - rect.top) / span;
+      /*
+       * Squeezed into the middle of that travel: the last frame is the face,
+       * and mapping it to the raw end meant the reveal landed as the section
+       * was already leaving the screen, where nobody sees it. It now arrives
+       * while the last screenshot is still being read, and holds.
+       */
+      const p = Math.min(Math.max((travelled - 0.12) / 0.56, 0), 1);
       const i = Math.min(Math.floor(p * TURNS.length), TURNS.length - 1);
       if (i !== last) {
         last = i;
