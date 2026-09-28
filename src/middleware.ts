@@ -22,6 +22,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals and files with an extension.
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  // Everything except Next internals, files with an extension, and /ourated —
+  // another app's zone (see next.config.ts), which has no locale prefix.
+  matcher: ["/((?!_next|ourated(?:/|$)|.*\\..*).*)"],
 };

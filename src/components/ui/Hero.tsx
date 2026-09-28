@@ -1,23 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import type { Dictionary } from "@/i18n";
 import { site } from "@/lib/site";
 import { Terminal } from "./Terminal";
-import { RabbitGlyph } from "./WhiteRabbit";
-import { usePrefersReducedMotion } from "@/lib/useReducedMotion";
+import { CodeRabbit, type CodeRabbitHandle } from "./CodeRabbit";
+import { ScrambleText } from "./ScrambleText";
 
 export function Hero({ d }: { d: Dictionary }) {
   const [booted, setBooted] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  const reduced = usePrefersReducedMotion();
-
-  // Come back if the visitor scrolls up again after following it.
-  useEffect(() => {
-    if (!leaving) return;
-    const t = window.setTimeout(() => setLeaving(false), 1600);
-    return () => window.clearTimeout(t);
-  }, [leaving]);
+  const rabbit = useRef<CodeRabbitHandle>(null);
 
   return (
     <section id="hero" className="relative flex min-h-svh flex-col justify-center">
@@ -45,32 +37,21 @@ export function Hero({ d }: { d: Dictionary }) {
             <Terminal lines={d.boot} onDone={() => setBooted(true)} />
 
             {/*
-              The rabbit comes out right under the line that tells you to follow
-              it. It used to sit at the bottom of the hero, which on a phone was
-              below the fold — the line said "follow the white rabbit" and the
-              rabbit was nowhere on screen. The terminal is at the top of every
-              screen, so this is always in view.
-
-              A real anchor: the smooth-scroll handler takes the page down while
-              the rabbit bounds off ahead.
+              The rabbit is caught together out of the rain right under the
+              line that tells you to follow it — the terminal is at the top of
+              every screen, so it is always in view. Following it (a real
+              anchor; the smooth-scroll handler takes the page down) lets it
+              go: it falls away as code down the page ahead of you.
             */}
             {booted && (
               <a
                 href="#bullet-time"
-                onClick={() => setLeaving(true)}
+                onClick={() => rabbit.current?.leave()}
                 aria-label={d.hero.followRabbit}
-                className="group mt-3 flex items-center gap-3 font-mono text-[13px] text-mx transition-colors hover:text-mx-soft sm:text-sm"
+                className="group mt-2 flex items-end gap-3 font-mono text-[13px] text-mx transition-colors hover:text-mx-soft sm:text-sm"
               >
-                <span
-                  className={`rabbit block h-11 w-11 ${
-                    reduced ? "" : leaving ? "rabbit-leave" : "rabbit-enter"
-                  }`}
-                >
-                  <span className={`block h-full w-full ${reduced || leaving ? "" : "rabbit-idle"}`}>
-                    <RabbitGlyph className="h-full w-full" />
-                  </span>
-                </span>
-                <span aria-hidden="true" className="inline-block transition-transform group-hover:translate-y-0.5">
+                <CodeRabbit ref={rabbit} className="block h-[108px] w-[136px] sm:h-[136px] sm:w-[172px]" />
+                <span aria-hidden="true" className="mb-2 inline-block transition-transform group-hover:translate-y-1">
                   ↓
                 </span>
               </a>
@@ -87,9 +68,16 @@ export function Hero({ d }: { d: Dictionary }) {
               "opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1)",
           }}
         >
-          <h1 className="text-[clamp(2.25rem,8.5vw,6.5rem)] font-semibold leading-[0.95] tracking-[-0.03em] text-text">
-            {site.name}
-          </h1>
+          {/* The name decodes out of the rain once the terminal is done, and
+              flickers back through it when a pointer passes over. */}
+          <ScrambleText
+            as="h1"
+            text={site.name}
+            active={booted}
+            replayOnHover
+            speed={30}
+            className="block text-[clamp(2.25rem,8.5vw,6.5rem)] font-semibold leading-[0.95] tracking-[-0.03em] text-text"
+          />
           <p className="mt-5 font-mono text-[11px] uppercase leading-relaxed tracking-[0.16em] text-mx glow-soft sm:text-sm sm:tracking-[0.18em]">
             {d.meta.role} — {d.meta.focus}
           </p>

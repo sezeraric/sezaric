@@ -71,37 +71,35 @@ export function rainIntensity(entry: number, bulletTime: number): number {
  * The experience stage.
  *
  * The section pins, and its scroll budget is split into one segment per role
- * followed by the reveal. In each role's segment its card comes in, fires its
- * threads at the figure (see FIRE_AT), and is read; the weave clip builds the
- * figure feet first across all the roles, then the reveal turns the finished
- * wireframe into the photograph and holds it.
+ * followed by the reveal. One particle cloud lives on the stage (see
+ * ConstructField). Every particle has an address in every form at once — the
+ * falling code, one emblem per role, and finally the portrait — and `morph`
+ * says which two forms it is between:
  *
- * WIREFRAME_DONE is where, in public/weave.mp4, the wireframe is complete and
- * the photograph starts to come through.
+ *   0          the code, still falling
+ *   1..roles   each role's form, in the order the cards come up
+ *   roles + 1  the portrait, compiled from all of the above
+ *
+ * A role's form assembles while its card arrives and holds while the card is
+ * read; after the last one the deck steps aside and the cloud becomes him.
  */
-export const WIREFRAME_DONE = 0.76;
-
-/**
- * Where in the clip the stage starts: the wireframe all but finished. The
- * figure is not built by the clip here — it is revealed outward from the point
- * where the cards' lasers meet (see ExperienceStage) — so the clip only has to
- * supply a complete wireframe, moving a little, for that reveal to uncover.
- */
-export const CLIP_START = 0.68;
 
 /** Pinned screens given to the reveal after the last role. */
 export const REVEAL_SEGMENTS = 1.8;
 
-/** Where in its own segment a card throws its threads: once it has arrived. */
+/** Where in its own segment a card has fully arrived. */
 export const FIRE_AT = 0.16;
+
+/** How much of a role's segment the particles take to flow into its form. */
+export const MORPH_SPAN = 0.34;
 
 export type Stage = {
   /** 0..roles: which role, and how far through it. */
   roleT: number;
   /** 0..1 — the deck stepping aside and the heading coming in. */
   reveal: number;
-  /** 0..1 — where the weave clip is. */
-  clip: number;
+  /** 0..roles+1 — which form the particles are in, and how far between two. */
+  morph: number;
 };
 
 export function stageAt(p: number, roles: number): Stage {
@@ -109,13 +107,12 @@ export function stageAt(p: number, roles: number): Stage {
   const t = clamp01(p) * (n + REVEAL_SEGMENTS);
   const roleT = Math.min(t, n);
   const r = clamp01((t - n) / REVEAL_SEGMENTS);
+  const i = Math.min(Math.floor(roleT), n);
+  const toRole = i >= n ? n : i + smoothstep(roleT - i, 0, MORPH_SPAN);
   return {
     roleT,
     reveal: smoothstep(r, 0, 0.3),
-    clip:
-      CLIP_START +
-      (WIREFRAME_DONE - CLIP_START) * (roleT / n) +
-      (1 - WIREFRAME_DONE) * smoothstep(r, 0.15, 0.75),
+    morph: toRole + smoothstep(r, 0.05, 0.55),
   };
 }
 

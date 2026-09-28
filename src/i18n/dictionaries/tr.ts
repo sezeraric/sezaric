@@ -46,14 +46,6 @@ export const tr: Dictionary = {
   ],
 
   hero: { scroll: "Kaydır", followRabbit: "Beyaz tavşanı takip et" },
-  rabbit: {
-    caught: "Yakalandım! Oops… kodlar düzgün çalışmıyor.",
-    cameo: [
-      "Déjà vu mu yaşadın? Matrix'te bir glitch'ti o. Gerçek tavşan benim.",
-      "Beni yakalayamazsın, Neo. Ama takip edebilirsin.",
-      "Kaşık yok. Tavşan da yok. Ama işte buradayım.",
-    ],
-  },
 
   bullets: [
     { label: "ANR", detail: "Android'i donduran ana iş parçacığı kilitleri" },
@@ -293,6 +285,13 @@ export const tr: Dictionary = {
     links: { email: "E-posta", github: "GitHub", linkedin: "LinkedIn", x: "X" },
     profileLabel: "Profil",
     rabbitArrived: "Sonuna kadar takip ettin.",
+  },
+
+  whisper: {
+    away: "● Geri dön, Neo…",
+    idle: ["Knock, knock, Neo.", "Hâlâ burada mısın? Klavyeden neo yaz."],
+    idleTouch: ["Knock, knock, Neo.", "Devam et. Aşağısı daha da güzel."],
+    neo: "Artık görebiliyorsun.",
   },
 
   footer: {

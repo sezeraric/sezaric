@@ -211,53 +211,6 @@ html.lenis, html.lenis body { height: auto; }
   transform: none;
 }
 
-/* ---- the white rabbit --------------------------------------------------- */
-
-.rabbit {
-  filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.35)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.6));
-}
-
-/* Drops in with a couple of settling bounces once the boot line is typed. */
-@keyframes rabbit-enter {
-  0%   { opacity: 0; transform: translate3d(0, -28px, 0) scale(0.9); }
-  45%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.04, 0.92); }
-  65%  { transform: translate3d(0, -8px, 0) scale(0.98, 1.03); }
-  82%  { transform: translate3d(0, 0, 0) scale(1.02, 0.97); }
-  100% { opacity: 1; transform: none; }
-}
-
-/* An occasional small hop, with a squash on landing. */
-@keyframes rabbit-idle {
-  0%, 70%, 100% { transform: none; }
-  76%  { transform: translate3d(0, -9px, 0) scale(0.97, 1.04); }
-  84%  { transform: translate3d(0, 0, 0) scale(1.05, 0.93); }
-  90%  { transform: none; }
-}
-
-@keyframes rabbit-ear {
-  0%, 88%, 100% { transform: rotate(0deg); }
-  92%  { transform: rotate(-14deg); }
-  96%  { transform: rotate(6deg); }
-}
-
-/* Leaving: bounds off ahead of you, down the page. */
-@keyframes rabbit-leave {
-  0%   { opacity: 1; transform: none; }
-  35%  { transform: translate3d(14px, -14px, 0) scale(1.02); }
-  70%  { opacity: 1; transform: translate3d(34px, 6px, 0) scale(0.92); }
-  100% { opacity: 0; transform: translate3d(60px, 30px, 0) scale(0.7); }
-}
-
-.rabbit-enter { animation: rabbit-enter 0.9s cubic-bezier(.2, .8, .2, 1) both; }
-.rabbit-idle  { animation: rabbit-idle 3.4s ease-in-out infinite; }
-.rabbit-leave { animation: rabbit-leave 0.7s ease-in forwards; }
-
-.rabbit-ear {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: rabbit-ear 4.2s ease-in-out infinite;
-}
-
 /* ---- the pills -------------------------------------------------------- */
 
 /* A slow bob with a little roll, so the capsule catches the light as it moves. */
@@ -396,42 +349,38 @@ html.lenis, html.lenis body { height: auto; }
   top: 0;
   height: 100svh;
   overflow: hidden;
-  /* Opaque, so the clip's black can be blended away against it. */
+  /* Opaque: the particle cloud is additive and needs true black under it. */
   background: var(--color-ink);
 }
 
-.exp-figure {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  aspect-ratio: 9 / 16;
-  /* A phone: under the deck, growing into the reveal. */
-  height: calc(50svh + 30svh * var(--reveal));
-  transform: translate3d(-50%, 0, 0);
-  mix-blend-mode: lighten;
-  /*
-   * Revealed outward from the focus, where the lasers meet: --fr grows by a
-   * ring with every card (see ExperienceStage). Intersected with a soft fade
-   * at the sides so no edge of the clip ever shows.
-   */
-  -webkit-mask-image:
-    radial-gradient(circle var(--fr, 1px) at var(--fx, 50%) var(--fy, 44%), #000 72%, transparent 100%),
-    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    radial-gradient(circle var(--fr, 1px) at var(--fx, 50%) var(--fy, 44%), #000 72%, transparent 100%),
-    linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-  mask-composite: intersect;
-}
-.exp-still { display: none; }
-
-.exp-threads {
+/* The particle cloud: the whole stage, under the deck. */
+.exp-field {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
 }
+
+/* What the cloud is building, named under it. */
+.exp-caption {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-mx-dim);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+ * No WebGL: the stage keeps its cards and simply has no cloud.
+ */
+.exp-stage[data-static] .exp-field,
+.exp-stage[data-static] .exp-caption { display: none; }
 
 .exp-deck {
   position: absolute;
@@ -508,11 +457,6 @@ html.lenis, html.lenis body { height: auto; }
 }
 
 @media (min-width: 768px) {
-  .exp-figure {
-    height: 96svh;
-    /* Beside the deck, then centre stage for the reveal. */
-    left: calc(72% - 22% * var(--reveal));
-  }
   .exp-deck {
     top: 50%;
     right: auto;
@@ -550,92 +494,15 @@ html.lenis, html.lenis body { height: auto; }
 
 /*
  * No pinning where the motion is unwanted or cannot run: the roles as a plain
- * list and the finished photograph beneath them.
+ * list.
  */
 @media (prefers-reduced-motion: reduce), (scripting: none) {
   .exp-track { height: auto; }
   .exp-stage { position: relative; height: auto; overflow: visible; background: none; }
-  .exp-figure {
-    position: relative;
-    left: auto;
-    height: 70svh;
-    margin: 2rem auto 0;
-    transform: none;
-    mix-blend-mode: normal;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-  .exp-figure video { display: none; }
-  .exp-still { display: block; }
-  .exp-threads, .exp-rail, .exp-heading { display: none; }
+  .exp-field, .exp-caption, .exp-rail, .exp-heading { display: none; }
   .exp-deck { position: relative; top: auto; transform: none; width: auto; margin: 0; padding-inline: var(--gutter, 1.25rem); }
   .exp-cards { display: grid; gap: 1rem; min-height: 0; }
   .exp-card { position: relative; opacity: 1; visibility: visible; }
-}
-
-/* ---- the rabbit guide ---------------------------------------------------- */
-
-.rabbit-guide-hopper {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 46px;
-  height: 46px;
-  opacity: 0;
-  will-change: transform;
-  filter: drop-shadow(0 0 8px rgba(53, 255, 119, 0.35));
-}
-.rabbit-guide-shadow {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 37px;
-  height: 8px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(53, 255, 119, 0.4), transparent);
-  opacity: 0;
-}
-.rabbit-guide-peeker {
-  position: absolute;
-  bottom: env(safe-area-inset-bottom, 0px);
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  visibility: hidden;
-  transform: translate3d(0, 107%, 0);
-  filter: drop-shadow(0 0 10px rgba(53, 255, 119, 0.3));
-  -webkit-tap-highlight-color: transparent;
-}
-.rabbit-guide-peeker:focus-visible { outline: 1px solid var(--color-mx); outline-offset: 4px; }
-.rabbit-guide-peeker svg { transform-origin: 50% 100%; animation: rabbit-sway 3.8s ease-in-out infinite; }
-
-@media (min-width: 768px) {
-  .rabbit-guide-hopper { width: 58px; height: 58px; }
-  .rabbit-guide-shadow { width: 46px; }
-}
-
-.rabbit-eyes { transform-box: fill-box; transform-origin: 50% 50%; animation: rabbit-blink 4.6s infinite; }
-.rabbit-pupils { transition: transform 0.25s ease-out; }
-.rabbit-peek-ear-l { transform-box: fill-box; transform-origin: 50% 100%; animation: rabbit-ear-l 5.3s ease-in-out infinite; }
-
-@keyframes rabbit-blink {
-  0%, 90%, 100% { transform: scaleY(1); }
-  93% { transform: scaleY(0.1); }
-  96% { transform: scaleY(1); }
-}
-@keyframes rabbit-ear-l {
-  0%, 70%, 100% { transform: rotate(0); }
-  76% { transform: rotate(-9deg); }
-  82% { transform: rotate(2deg); }
-}
-@keyframes rabbit-sway {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rabbit-guide { display: none; }
 }
 
 /* ---- scroll-linked touches ------------------------------------------------ */
@@ -705,86 +572,46 @@ html.lenis, html.lenis body { height: auto; }
   .fan-left, .fan-right { --fan-tilt: -7deg; }
 }
 
-/* The hopper is a button now, so it can be caught. */
-.rabbit-guide-hopper { padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
-/* Caught: trembling in your hand. */
-.rabbit-guide .is-caught svg { animation: rabbit-shake 0.12s linear infinite; }
-@keyframes rabbit-shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-1px, 1px); }
-  50% { transform: translate(1px, -1px); }
-  75% { transform: translate(-1px, -1px); }
-}
+/* ---- the corner terminal (see Whispers) ---------------------------------- */
 
-/* ...and then it was never there: a glitch out of existence. */
-.rabbit-guide .is-glitching svg { animation: rabbit-glitch-out 0.9s steps(1, end) forwards; }
-@keyframes rabbit-glitch-out {
-  0%   { opacity: 1; transform: none; clip-path: inset(0); filter: drop-shadow(2px 0 rgba(255, 0, 80, 0.9)) drop-shadow(-2px 0 rgba(0, 255, 230, 0.9)); }
-  12%  { transform: translate(-5px, 0) skewX(8deg); clip-path: inset(12% 0 55% 0); }
-  24%  { transform: translate(4px, 0); clip-path: inset(48% 0 18% 0); }
-  36%  { transform: translate(-2px, 1px) skewX(-10deg); clip-path: inset(0 0 70% 0); opacity: 0.85; }
-  48%  { transform: translate(6px, 0); clip-path: inset(62% 0 5% 0); }
-  60%  { transform: none; clip-path: inset(30% 0 30% 0); opacity: 0.6; }
-  72%  { transform: translate(-7px, 0) scaleY(0.6); clip-path: inset(44% 0 44% 0); opacity: 0.5; }
-  84%  { transform: translate(3px, 0) scaleY(0.2); clip-path: inset(49% 0 49% 0); opacity: 0.3; }
-  100% { transform: scaleY(0); clip-path: inset(50% 0 50% 0); opacity: 0; }
-}
-
-/*
- * The real rabbit, leaning in from behind the left edge just under the nav:
- * upright, head tilted into the page, the way a cartoon peeks round a corner.
- */
-.rabbit-guide-cameo {
-  position: absolute;
-  left: 0;
-  top: calc(4rem + 1.25rem);
-  width: 64px;
-  height: 77px;
-  visibility: hidden;
-  transform: translate3d(-100%, 0, 0);
-  filter: drop-shadow(0 0 10px rgba(53, 255, 119, 0.3));
-}
-.rabbit-guide-cameo svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(26deg);
-  transform-origin: 0% 100%;
-}
-
-/* What the rabbits say: a little terminal bubble, typed out. */
-.rabbit-bubble {
-  --tail: 50%;
-  position: absolute;
-  left: 0;
-  top: 0;
-  max-width: min(250px, calc(100vw - 24px));
-  padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(0, 255, 65, 0.45);
+.whisper {
+  position: fixed;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 70;
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(0, 255, 65, 0.35);
   border-radius: 6px;
-  background: rgba(5, 8, 7, 0.95);
-  box-shadow: 0 0 22px rgba(0, 255, 65, 0.16);
+  background: rgba(5, 8, 7, 0.92);
+  box-shadow: 0 0 28px rgba(0, 255, 65, 0.12), 0 18px 40px rgba(0, 0, 0, 0.6);
   color: var(--color-mx);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  visibility: hidden;
-  transition: opacity 0.3s ease;
+  font-size: 12.5px;
+  line-height: 1.55;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  transition: opacity 0.4s ease, transform 0.5s var(--ease-out-expo);
 }
-.rabbit-bubble.is-fading { opacity: 0; }
-.rabbit-bubble::after {
-  content: "";
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  background: inherit;
-  border: inherit;
-  border-top: 0;
-  border-left: 0;
+.whisper[data-open="true"] { opacity: 1; transform: none; }
+.whisper-text { white-space: pre-wrap; text-shadow: 0 0 10px rgba(0, 255, 65, 0.35); }
+.whisper-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.5em;
+  border-radius: 50%;
+  background: var(--color-mx);
+  box-shadow: 0 0 8px var(--color-mx);
+  animation: whisper-pulse 1.4s ease-in-out infinite;
 }
-.rabbit-bubble[data-side="above"]::after { left: calc(var(--tail) - 5px); bottom: -5px; transform: rotate(45deg); }
-.rabbit-bubble[data-side="right"]::after { left: -5px; top: 30%; transform: rotate(135deg); }
-
-@media (min-width: 768px) {
-  .rabbit-bubble { font-size: 13px; max-width: 300px; }
+@keyframes whisper-pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .whisper { transition: none; }
+  .whisper-dot { animation: none; }
 }

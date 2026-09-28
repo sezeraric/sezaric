@@ -3,25 +3,39 @@
 import { useEffect, useRef, useState } from "react";
 import { scroll } from "@/lib/scroll";
 import { FIRE_AT, cardMotion, stageAt } from "@/lib/curves";
-import { useIsNarrow } from "@/lib/useViewport";
-import { ScrollVideo } from "./ScrollVideo";
+import { detect } from "@/lib/perf";
+import { site } from "@/lib/site";
+import {
+  atomForm,
+  codeForm,
+  globeForm,
+  helixForm,
+  loadImage,
+  phoneForm,
+  portraitForm,
+  rainForm,
+  type Form,
+} from "@/lib/shapes";
+import type { ConstructField, Layout } from "@/components/scene/ConstructField";
 
 /**
- * The career, as the thing he is built from.
+ * The career, compiled.
  *
- * The section pins. Each role comes up as a card; as it arrives, its edge
- * lights and it fires a fan of lasers that all meet at one point on the
- * figure — the focus, in the middle of the chest. A core ignites there, and
- * with every hit the figure is revealed a ring further out from that point,
- * so after the last role he has been built outward from a single spark. The
- * figure is the weave clip (public/weave.mp4, made in Higgsfield from the same
- * frame as the portrait), held on its finished wireframe. After the last role
- * the deck steps aside, the figure takes the centre and the wireframe turns
- * into the photograph.
+ * The section pins and one particle cloud lives on the stage — thousands of
+ * the rain's own glyphs. Before the first card they are still falling code.
+ * As each role comes up, the code dissolves and re-assembles into that role's
+ * form: an atom for the React years, the double helix for health technology,
+ * a phone for cross-platform mobile, a globe for freelance clients, `</>` for
+ * where it began. After the last role the deck steps aside, and the same
+ * particles land in one last form: him, sampled from the portrait photograph.
  *
- * Everything continuous is written to the DOM from one frame loop — nothing
- * here re-renders while scrolling. Reduced motion and no-script get the plain
- * list and the finished photograph, from CSS alone (see globals.css).
+ * Every particle holds an address in every form at once (lib/shapes.ts), and
+ * scroll position only says which two forms it is between (lib/curves.ts,
+ * `stageAt().morph`). Scrolling back un-compiles him, role by role.
+ *
+ * Everything continuous is written from one frame loop — nothing re-renders
+ * while scrolling. Reduced motion, no script and no WebGL get the roles as a
+ * plain list from CSS alone (see globals.css).
  */
 
 export type Role = {
@@ -31,26 +45,25 @@ export type Role = {
   points: readonly string[];
 };
 
-const DESKTOP_SRC = "/weave.mp4";
-const MOBILE_SRC = "/weave-mobile.mp4";
-const POSTER = "/weave-poster.jpg";
-const STILL = "/weave-last.jpg";
-
-const EXTEND = 0.26; // seconds, a beam from the card to the focus
-const STAGGER = 0.022;
-const SUSTAIN = 0.85;
-const RETRACT = 0.3; // the beam is drawn into the focus
-/** The focus, as a fraction of the figure's box: the middle of the chest. */
-const FOCUS = { x: 0.5, y: 0.44 };
-/** Where his feet are in the clip, as a fraction of its height. */
-const BODY_FEET = 0.93;
-
-type Beam = { x0: number; y0: number; delay: number; seed: number };
-type Volley = { born: number; beams: Beam[]; hit: boolean; role: number; life: number };
+/** One form per role, in the order the cards come up. */
+const ROLE_FORMS: { make: (n: number) => Form; label: string }[] = [
+  { make: atomForm, label: "react" },
+  { make: helixForm, label: "genome" },
+  { make: phoneForm, label: "mobile" },
+  { make: globeForm, label: "world" },
+  { make: codeForm, label: "</>" },
+];
 
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-const easeIn = (t: number) => t * t;
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+type Region = { x0: number; y0: number; x1: number; y1: number };
+const mixRegion = (a: Region, b: Region, t: number): Region => ({
+  x0: lerp(a.x0, b.x0, t),
+  y0: lerp(a.y0, b.y0, t),
+  x1: lerp(a.x1, b.x1, t),
+  y1: lerp(a.y1, b.y1, t),
+});
 
 export function ExperienceStage({
   roles,
@@ -61,20 +74,19 @@ export function ExperienceStage({
 }) {
   const track = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const figure = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const deck = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLDivElement>(null);
   const counter = useRef<HTMLSpanElement>(null);
+  const caption = useRef<HTMLSpanElement>(null);
   const cards = useRef<(HTMLElement | null)[]>([]);
   const fills = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const clip = useRef(0);
   const onScreen = useRef(false);
   const [near, setNear] = useState(false);
-  const narrow = useIsNarrow();
+  const [noField, setNoField] = useState(false);
 
-  // Fetch the clip only when the section is close; run the loop only while it is.
+  // Build the cloud only once the section is close; run the loop only while it is.
   useEffect(() => {
     const el = track.current;
     if (!el) return;
@@ -83,203 +95,36 @@ export function ExperienceStage({
         onScreen.current = e.isIntersecting;
         if (e.isIntersecting) setNear(true);
       },
-      { rootMargin: "100% 0px" },
+      { rootMargin: "120% 0px" },
     );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
+  // The deck, the rail and the heading: plain DOM, from the start.
   useEffect(() => {
     const t = track.current;
-    const st = stage.current;
-    const cv = canvas.current;
-    if (!t || !st || !cv) return;
+    if (!t) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const ctx = cv.getContext("2d");
-    if (!ctx) return;
-
     const n = roles.length;
-    let dpr = 1;
-    const size = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const r = st.getBoundingClientRect();
-      cv.width = Math.round(r.width * dpr);
-      cv.height = Math.round(r.height * dpr);
-    };
-    size();
-    window.addEventListener("resize", size);
-
-    const volleys: Volley[] = [];
-    let armed: boolean[] | null = null;
     let lastCounter = -1;
-    let drew = false;
-
-    // The focus and the reveal around it, in stage coordinates.
-    const focus = { x: 0, y: 0, lx: 0, ly: 0, maxR: 1 };
-    let hits: number | null = null;
-    let radius = 0;
-    let flash = 0;
-    let lastNow = 0;
-
-    const fire = (i: number, now: number) => {
-      const card = cards.current[i];
-      if (!card) return;
-      const base = st.getBoundingClientRect();
-      const c = card.getBoundingClientRect();
-      const wide = window.innerWidth >= 768;
-      const count = wide ? 12 : 10;
-
-      const beams: Beam[] = [];
-      for (let k = 0; k < count; k++) {
-        const u = (k + 0.5) / count;
-        beams.push({
-          // Out of the lit edge: the bottom of the card on a phone, where the
-          // figure stands below it; its right edge on a wide screen.
-          x0: wide ? c.right - base.left : c.left - base.left + c.width * (0.08 + 0.84 * u),
-          y0: wide ? c.top - base.top + c.height * (0.1 + 0.8 * u) : c.bottom - base.top,
-          // The middle beams first, the outer ones a beat later.
-          delay: Math.abs(u - 0.5) * count * STAGGER,
-          seed: Math.random(),
-        });
-      }
-      const last = Math.max(...beams.map((b) => b.delay));
-      // A new volley cuts the previous one short.
-      for (const v of volleys) v.life = Math.min(v.life, now - v.born + 0.12);
-      volleys.push({ born: now, beams, hit: false, role: i, life: last + EXTEND + SUSTAIN + RETRACT });
-
-      card.classList.remove("is-firing");
-      // Restart the edge's flash even if it is still running from last time.
-      void card.offsetWidth;
-      card.classList.add("is-firing");
-    };
-
-    const draw = (now: number, active: boolean) => {
-      for (let i = volleys.length - 1; i >= 0; i--) {
-        if (now - volleys[i].born > volleys[i].life) volleys.splice(i, 1);
-      }
-      const core = active && (hits ?? 0) > 0;
-      if (!volleys.length && !core && flash < 0.01) {
-        if (drew) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, cv.width, cv.height);
-          drew = false;
-        }
-        return;
-      }
-      drew = true;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, cv.width, cv.height);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.globalCompositeOperation = "lighter";
-      ctx.lineCap = "round";
-
-      for (const v of volleys) {
-        const age = now - v.born;
-        const fade = age > v.life - 0.12 ? clamp01((v.life - age) / 0.12) : 1;
-        v.beams.forEach((b) => {
-          const local = age - b.delay;
-          if (local <= 0) return;
-          const reach = easeOut(clamp01(local / EXTEND));
-          const drawIn = easeIn(clamp01((local - EXTEND - SUSTAIN) / RETRACT));
-          if (drawIn >= 1) return;
-          if (reach >= 1 && !v.hit) {
-            v.hit = true;
-            hits = Math.max(hits ?? 0, v.role + 1);
-            flash = 1;
-          }
-          const hx = b.x0 + (focus.x - b.x0) * reach;
-          const hy = b.y0 + (focus.y - b.y0) * reach;
-          const tx = b.x0 + (focus.x - b.x0) * drawIn;
-          const ty = b.y0 + (focus.y - b.y0) * drawIn;
-          // A laser hums: a fast, slight flicker, different on every beam.
-          const a = fade * (0.82 + 0.18 * Math.sin(now * 70 + b.seed * 40));
-
-          ctx.beginPath();
-          ctx.moveTo(tx, ty);
-          ctx.lineTo(hx, hy);
-          ctx.strokeStyle = `rgba(40, 255, 110, ${0.14 * a})`;
-          ctx.lineWidth = 8;
-          ctx.stroke();
-          ctx.strokeStyle = `rgba(60, 255, 130, ${0.45 * a})`;
-          ctx.lineWidth = 2.6;
-          ctx.stroke();
-          ctx.strokeStyle = `rgba(232, 255, 238, ${0.95 * a})`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-
-          // Where it leaves the card, a small bright point.
-          if (drawIn < 0.05) {
-            ctx.fillStyle = `rgba(200, 255, 215, ${0.7 * a})`;
-            ctx.beginPath();
-            ctx.arc(b.x0, b.y0, 2, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        });
-      }
-
-      // The core: a spark at the focus, flaring with every hit.
-      if (core || flash > 0.01) {
-        const r = 7 + 22 * flash;
-        const g = ctx.createRadialGradient(focus.x, focus.y, 0, focus.x, focus.y, r * 2.4);
-        g.addColorStop(0, `rgba(235, 255, 240, ${0.55 + 0.45 * flash})`);
-        g.addColorStop(0.22, `rgba(80, 255, 140, ${0.35 + 0.4 * flash})`);
-        g.addColorStop(1, "rgba(0, 255, 65, 0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(focus.x, focus.y, r * 2.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // The edge of what has been built so far, as it grows.
-      if (core && radius > 2) {
-        const moving = clamp01(Math.abs((hits! / n) * focus.maxR - radius) / (focus.maxR * 0.06));
-        const a = 0.1 + 0.6 * moving;
-        ctx.beginPath();
-        ctx.arc(focus.x, focus.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(40, 255, 110, ${0.18 * a})`;
-        ctx.lineWidth = 6;
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(170, 255, 200, ${0.8 * a})`;
-        ctx.lineWidth = 1.1;
-        ctx.stroke();
-      }
-      ctx.globalCompositeOperation = "source-over";
-    };
-
+    let armed: boolean[] | null = null;
     let raf = 0;
-    const loop = (ms: number) => {
+
+    const loop = () => {
       raf = requestAnimationFrame(loop);
-      const now = ms / 1000;
       if (!onScreen.current) {
         scroll.stageActive = false;
         return;
       }
-
       const r = t.getBoundingClientRect();
       const vh = window.innerHeight;
       const budget = r.height - vh;
       const progress = budget > 0 ? clamp01(-r.top / budget) : 0;
       scroll.stageActive = r.top <= 1 && r.bottom >= vh - 1;
-
       const s = stageAt(progress, n);
-      clip.current = s.clip;
-      st.style.setProperty("--reveal", s.reveal.toFixed(4));
-
-      // Where the focus is this frame, in stage coordinates and in the
-      // figure's own (for its mask).
-      const fig = figure.current;
-      if (fig) {
-        const base = st.getBoundingClientRect();
-        const f = fig.getBoundingClientRect();
-        focus.lx = f.width * FOCUS.x;
-        focus.ly = f.height * FOCUS.y;
-        focus.x = f.left - base.left + focus.lx;
-        focus.y = f.top - base.top + focus.ly;
-        // Far enough to reach his feet — the furthest part of him from the
-        // chest — so the last card is the one that completes him. (Measured
-        // to the clip's corners instead, he was whole by the third card.)
-        focus.maxR = f.height * (BODY_FEET - FOCUS.y) * 1.04;
-      }
+      scroll.stageMorph = s.morph;
+      scroll.stageReveal = s.reveal;
 
       for (let i = 0; i < n; i++) {
         const card = cards.current[i];
@@ -308,69 +153,219 @@ export function ExperienceStage({
         heading.current.style.transform = `translate3d(0, ${((1 - s.reveal) * 24).toFixed(1)}px, 0)`;
       }
 
-      // A card fires as it arrives. Scrolling back above it re-arms it. A
-      // fast scroll that crosses several cards in one frame fires only the
-      // one now on screen — the rest are passed, not thrown all at once.
-      if (!armed) armed = Array.from({ length: n }, (_, i) => s.roleT - i < FIRE_AT);
-      let toFire = -1;
+      // The card's edge facing the cloud flashes as its form starts to build.
+      if (!armed) armed = Array.from({ length: n }, (_, i) => s.roleT - i < FIRE_AT * 0.5);
       for (let i = 0; i < n; i++) {
         const local = s.roleT - i;
-        if (armed[i] && local >= FIRE_AT) {
+        if (armed[i] && local >= FIRE_AT * 0.5) {
           armed[i] = false;
-          if (local < 1 && s.reveal < 0.5) toFire = i;
-        } else if (!armed[i] && local < FIRE_AT - 0.08) {
+          const card = cards.current[i];
+          if (card && local < 1 && s.reveal < 0.5) {
+            card.classList.remove("is-firing");
+            void card.offsetWidth;
+            card.classList.add("is-firing");
+          }
+        } else if (!armed[i] && local < FIRE_AT * 0.5 - 0.08) {
           armed[i] = true;
         }
       }
-      if (toFire >= 0) fire(toFire, now);
-
-      // How much of him has been built: one ring per card whose lasers have
-      // hit. Scrolling back above a card takes its ring away again.
-      const fired = armed.reduce((sum, a) => sum + (a ? 0 : 1), 0);
-      if (hits === null) hits = fired;
-      hits = Math.min(hits, fired);
-      const dt = Math.min(0.05, Math.max(0, now - lastNow));
-      lastNow = now;
-      flash *= Math.exp(-dt * 5);
-      const target = s.reveal > 0.02 ? focus.maxR * 1.2 : (focus.maxR * hits) / n;
-      radius += (target - radius) * (1 - Math.exp(-dt * 4.5));
-      if (fig) {
-        fig.style.setProperty("--fx", `${focus.lx.toFixed(1)}px`);
-        fig.style.setProperty("--fy", `${focus.ly.toFixed(1)}px`);
-        fig.style.setProperty("--fr", `${Math.max(1, radius).toFixed(1)}px`);
-      }
-
-      draw(now, s.reveal < 0.3);
     };
     raf = requestAnimationFrame(loop);
-
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", size);
       scroll.stageActive = false;
     };
   }, [roles.length]);
+
+  // The cloud.
+  useEffect(() => {
+    if (!near) return;
+    const st = stage.current;
+    const cv = canvas.current;
+    if (!st || !cv) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let cancelled = false;
+    let field: ConstructField | null = null;
+    let raf = 0;
+    const n = roles.length;
+    const caps = detect();
+    const count = caps.tier === "high" ? 16000 : caps.tier === "medium" ? 11000 : 6500;
+
+    const labels = ["", ...roles.map((_, i) => ROLE_FORMS[i % ROLE_FORMS.length].label), ""];
+
+    // Pointer: a little parallax, and the place where the code is touched.
+    let px = 0;
+    let py = 0;
+    const touch = { x: -1e4, y: -1e4, at: -1e9, on: 0 };
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") {
+        px = (e.clientX / window.innerWidth) * 2 - 1;
+        py = (e.clientY / window.innerHeight) * 2 - 1;
+      }
+      const r = st.getBoundingClientRect();
+      touch.x = e.clientX - r.left;
+      touch.y = e.clientY - r.top;
+      touch.at = performance.now() / 1000;
+    };
+    const onLeave = () => {
+      touch.at = -1e9;
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("pointerdown", onPointer, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
+
+    const resize = () => {
+      if (!field) return;
+      const r = st.getBoundingClientRect();
+      field.resize(r.width, r.height);
+    };
+
+    const start = async () => {
+      // Build forms one at a time so the main thread gets a breath between.
+      const breathe = () => new Promise((r) => setTimeout(r, 0));
+      const forms: Form[] = [rainForm(count)];
+      for (let i = 0; i < n; i++) {
+        await breathe();
+        if (cancelled) return;
+        forms.push(ROLE_FORMS[i % ROLE_FORMS.length].make(count));
+      }
+      const img = await loadImage(site.portrait);
+      if (cancelled) return;
+      forms.push(portraitForm(img, count));
+
+      const { ConstructField } = await import("@/components/scene/ConstructField");
+      if (cancelled) return;
+      try {
+        field = new ConstructField(cv, forms, caps.dpr[1]);
+      } catch {
+        setNoField(true);
+        return;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+      raf = requestAnimationFrame(loop);
+    };
+
+    const eased = { x: 0, y: 0, half: 0, glyph: 0.03, yaw: 0, pitch: 0 };
+    let first = true;
+    let lastNow = 0;
+    let lastLabel = "";
+
+    const loop = (ms: number) => {
+      raf = requestAnimationFrame(loop);
+      if (!onScreen.current || !field) return;
+      const now = ms / 1000;
+      const dt = Math.min(0.05, Math.max(0, now - lastNow));
+      lastNow = now;
+
+      // The cloud follows the scroll with a little lag, like the demo's
+      // `uMorph += (target - uMorph) * k`, but frame-rate independent.
+      const target = scroll.stageMorph;
+      field.morph = first ? target : field.morph + (target - field.morph) * (1 - Math.exp(-dt * 3.6));
+      const rv = scroll.stageReveal;
+
+      // Where the form may sit: beside the deck on a wide screen, under it on a
+      // phone; the whole stage below the heading once the deck steps aside.
+      const base = st.getBoundingClientRect();
+      const w = base.width;
+      const h = base.height;
+      const wide = w >= 768;
+      let roleRegion: Region;
+      if (wide) {
+        const d = deck.current?.getBoundingClientRect();
+        const left = d ? d.right - base.left + w * 0.04 : w * 0.5;
+        roleRegion = { x0: left, y0: h * 0.1, x1: w * 0.95, y1: h * 0.92 };
+      } else {
+        let bottom = h * 0.5;
+        const i = Math.min(n - 1, Math.max(0, Math.floor(target) - 1));
+        const card = cards.current[i];
+        if (card) bottom = card.getBoundingClientRect().bottom - base.top;
+        roleRegion = { x0: 0, y0: Math.min(bottom + 14, h * 0.7), x1: w, y1: h - 16 };
+      }
+      const hd = heading.current?.getBoundingClientRect();
+      const headBottom = hd ? hd.bottom - base.top : h * 0.25;
+      // Wide: the heading holds the left, he takes the right.
+      const revealRegion: Region = wide
+        ? { x0: w * 0.36, y0: h * 0.07, x1: w * 0.99, y1: h * 0.995 }
+        : { x0: 0, y0: Math.min(headBottom + 8, h * 0.45), x1: w, y1: h - 8 };
+      const region = mixRegion(roleRegion, revealRegion, rv);
+
+      const m = clamp01(field.morph / (field.formCount - 1)) * (field.formCount - 1);
+      const i = Math.min(Math.floor(m), field.formCount - 2);
+      const f = m - i;
+      const reach = lerp(field.reach(i), field.reach(i + 1), f);
+      const rw = region.x1 - region.x0;
+      const rh = region.y1 - region.y0;
+      const half = Math.max(20, Math.min((rh / 2) * 0.88, (rw / 2 / reach) * 0.9));
+      const portrait = clamp01(field.morph - n);
+      const glyphPx = (wide ? lerp(9, 7, portrait) : lerp(6.5, 5.2, portrait));
+
+      const k = first ? 1 : 1 - Math.exp(-dt * 7);
+      first = false;
+      eased.x += ((region.x0 + region.x1) / 2 - eased.x) * k;
+      eased.y += ((region.y0 + region.y1) / 2 - eased.y) * k;
+      eased.half += (half - eased.half) * k;
+      eased.glyph += (glyphPx / Math.max(eased.half, 1) - eased.glyph) * k;
+      // A slow sway while it is an object; the face looks straight out.
+      const yaw = Math.sin(now * 0.32) * 0.55 * (1 - portrait) + px * lerp(0.3, 0.12, portrait);
+      const pitch = py * lerp(0.16, 0.08, portrait) + Math.sin(now * 0.23) * 0.06 * (1 - portrait);
+      eased.yaw += (yaw - eased.yaw) * (1 - Math.exp(-dt * 3));
+      eased.pitch += (pitch - eased.pitch) * (1 - Math.exp(-dt * 3));
+
+      // The touch fades in while the pointer moves over the cloud and lets go
+      // a moment after it stops — a still cursor should not hold a hole open.
+      const live = now - touch.at < 1.2 ? 1 : 0;
+      touch.on += (live - touch.on) * (1 - Math.exp(-dt * (live ? 8 : 2.5)));
+
+      const layout: Layout = {
+        x: eased.x,
+        y: eased.y,
+        half: eased.half,
+        glyph: eased.glyph,
+        yaw: eased.yaw,
+        pitch: eased.pitch,
+        opacity: 1,
+        touch: { x: touch.x, y: touch.y, on: touch.on, radius: wide ? 78 : 56 },
+      };
+      field.render(now, layout);
+
+      // Name the form being built, in the site's terminal voice.
+      const cap = caption.current;
+      if (cap) {
+        const label = labels[Math.round(field.morph)] ?? "";
+        if (label !== lastLabel) {
+          lastLabel = label;
+          cap.textContent = label ? `build → ${label}` : "";
+        }
+        const settle = 1 - Math.min(1, Math.abs(field.morph - Math.round(field.morph)) * 3);
+        cap.style.opacity = (label ? settle * (1 - rv) * 0.9 : 0).toFixed(3);
+        const cy = Math.min(h - 22, eased.y + eased.half + 18);
+        cap.style.transform = `translate3d(${eased.x.toFixed(1)}px, ${cy.toFixed(1)}px, 0) translateX(-50%)`;
+      }
+    };
+
+    start().catch(() => setNoField(true));
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("pointerdown", onPointer);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
+      field?.dispose();
+    };
+  }, [near, roles]);
 
   const n = roles.length;
 
   return (
     <div ref={track} className="exp-track" style={{ "--exp-segments": n + 1.8 } as React.CSSProperties}>
-      <div ref={stage} className="exp-stage">
-        {/* The figure. Its black falls away into the stage with `lighten`. */}
-        <div ref={figure} className="exp-figure" aria-hidden="true">
-          {near && (
-            <ScrollVideo
-              key={narrow ? "m" : "d"}
-              src={narrow ? MOBILE_SRC : DESKTOP_SRC}
-              poster={POSTER}
-              progress={() => clip.current}
-              active={() => onScreen.current}
-              className="h-full w-full object-contain"
-            />
-          )}
-          {/* eslint-disable-next-line @next/next/no-img-element -- the finished picture for reduced motion, sized by CSS */}
-          <img src={STILL} alt="" className="exp-still h-full w-full object-contain" loading="lazy" />
-        </div>
+      <div ref={stage} className="exp-stage" data-static={noField ? "" : undefined}>
+        {/* The cloud. Under the deck, so the cards stay solid over it. */}
+        <canvas ref={canvas} className="exp-field" aria-hidden="true" />
+        <span ref={caption} className="exp-caption font-mono" aria-hidden="true" />
 
         <div ref={deck} className="exp-deck">
           <div className="exp-rail" aria-hidden="true">
@@ -417,19 +412,11 @@ export function ExperienceStage({
                     </li>
                   ))}
                 </ul>
-                {/* The edge the threads leave from; flashes as they go. */}
                 <span className="exp-emitter" aria-hidden="true" />
               </li>
             ))}
           </ol>
         </div>
-
-        {/*
-          The lasers, over the deck: they leave from the card's lit edge and
-          head away from it, so they never cross its text — and under the
-          card's shadow they looked as if they started a hand's width below it.
-        */}
-        <canvas ref={canvas} className="exp-threads" aria-hidden="true" />
 
         <div ref={heading} className="exp-heading shell">
           <p className="eyebrow">{reveal.eyebrow}</p>

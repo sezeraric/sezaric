@@ -31,9 +31,15 @@ export type ScrollState = {
   vw: number;
   /**
    * True while the experience stage is pinned. Written by ExperienceStage,
-   * read by anything that should get out of its way (the rabbit).
+   * read by anything that should get out of its way.
    */
   stageActive: boolean;
+  /** Which form the experience stage's particles should be in (curves.stageAt). */
+  stageMorph: number;
+  /** 0..1 — the experience stage's reveal. */
+  stageReveal: number;
+  /** performance.now() when the visitor typed "neo"; the rain surges from there. */
+  surge: number;
 };
 
 
@@ -47,6 +53,9 @@ export const scroll: ScrollState = {
   vh: 1,
   vw: 1,
   stageActive: false,
+  stageMorph: 0,
+  stageReveal: 0,
+  surge: -1e9,
 };
 
 /** Section ids whose progress we track for the 3D scene. */

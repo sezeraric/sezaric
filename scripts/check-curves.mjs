@@ -21,7 +21,7 @@ try {
     { stdio: "inherit" },
   );
 
-  const { phase, rainIntensity, backdropPresence, stageAt, cardMotion, WIREFRAME_DONE, FIRE_AT, CLIP_START } =
+  const { phase, rainIntensity, backdropPresence, stageAt, cardMotion, FIRE_AT, MORPH_SPAN } =
     await import(pathToFileURL(out).href);
 
   // The approach: section rising into view, pin not started yet (p is still 0).
@@ -85,26 +85,35 @@ try {
   const stage = [];
   for (const p of [0, 0.05, 0.2, 0.4, 0.6, 0.735, 0.8, 0.9, 1]) {
     const c = stageAt(p, ROLES);
-    stage.push({ p, roleT: +c.roleT.toFixed(2), clip: +c.clip.toFixed(3), reveal: +c.reveal.toFixed(2) });
+    stage.push({ p, roleT: +c.roleT.toFixed(2), morph: +c.morph.toFixed(3), reveal: +c.reveal.toFixed(2) });
   }
   console.log("Experience stage:");
   console.table(stage);
 
-  if (Math.abs(stageAt(0, ROLES).clip - CLIP_START) > 1e-6) fail.push("clip not at CLIP_START when the stage pins");
-  // The wireframe is complete exactly when the last role has been read...
+  // Before the pin the particles are still falling code.
+  if (Math.abs(stageAt(0, ROLES).morph) > 1e-6) fail.push("particles already formed when the stage pins");
+  // Every role's form is settled while its card is being read...
+  for (let k = 0; k < ROLES; k++) {
+    const p = (k + 0.6) / (ROLES + 1.8);
+    if (Math.abs(stageAt(p, ROLES).morph - (k + 1)) > 1e-6) fail.push(`role ${k} form not settled mid-card`);
+    // ...and it starts forming the moment its card starts to arrive.
+    const start = (k + MORPH_SPAN * 0.5) / (ROLES + 1.8);
+    const m = stageAt(start, ROLES).morph;
+    if (m <= k + 1e-3 || m >= k + 1 - 1e-3) fail.push(`role ${k} form not in motion as its card arrives`);
+  }
   const lastRole = ROLES / (ROLES + 1.8);
-  if (Math.abs(stageAt(lastRole, ROLES).clip - WIREFRAME_DONE) > 1e-6) fail.push("wireframe not complete after the last role");
-  // ...the clip never runs backwards...
+  if (Math.abs(stageAt(lastRole, ROLES).morph - ROLES) > 1e-6) fail.push("last role's form not held when the reveal begins");
+  // ...the cloud never flows backwards while scrolling forwards...
   {
     let last = -1;
-    for (let i = 0; i <= 400; i++) {
-      const v = stageAt(i / 400, ROLES).clip;
-      if (v < last - 1e-9) { fail.push(`clip runs backwards at p=${i / 400}`); break; }
+    for (let i = 0; i <= 800; i++) {
+      const v = stageAt(i / 800, ROLES).morph;
+      if (v < last - 1e-9) { fail.push(`morph runs backwards at p=${i / 800}`); break; }
       last = v;
     }
   }
-  // ...and the photograph is fully in, and held, before the pin lets go.
-  if (stageAt(0.97, ROLES).clip < 0.999) fail.push("photograph not held at the end of the stage");
+  // ...and the portrait is fully compiled, and held, before the pin lets go.
+  if (stageAt(0.97, ROLES).morph < ROLES + 1 - 1e-3) fail.push("portrait not held at the end of the stage");
   if (stageAt(lastRole, ROLES).reveal > 1e-6) fail.push("deck stepping aside before the last role is read");
 
   // Cards: never more than two on screen at once, and each is fully shown

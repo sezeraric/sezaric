@@ -13,8 +13,9 @@ import { Work } from "@/components/ui/Work";
 import { Projects } from "@/components/ui/Projects";
 import { AI } from "@/components/ui/AI";
 import { Contact, Footer } from "@/components/ui/Contact";
-import { RabbitGuide } from "@/components/ui/RabbitGuide";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
+import { CodeCursor } from "@/components/ui/CodeCursor";
+import { Whispers } from "@/components/ui/Whispers";
 
 export default async function Home({ params }: PageProps<"/[locale]">) {
   const { locale } = await params;
@@ -36,7 +37,6 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
 
       <ScrollProgress />
       <Nav d={d} locale={l} />
-      <RabbitGuide label={d.hero.followRabbit} caught={d.rabbit.caught} cameo={d.rabbit.cameo} />
 
       <main>
         <Hero d={d} />
@@ -58,6 +58,8 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
       </main>
 
       <Footer d={d} />
+      <CodeCursor />
+      <Whispers lines={d.whisper} />
     </>
   );
 }

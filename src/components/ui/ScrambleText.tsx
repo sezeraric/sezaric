@@ -18,12 +18,18 @@ export function ScrambleText({
   className,
   speed = 26,
   as = "span",
+  active = true,
+  replayOnHover = false,
 }: {
   text: string;
   className?: string;
   /** ms between frames */
   speed?: number;
   as?: Tag;
+  /** Hold off until this is true (e.g. until the element is actually shown). */
+  active?: boolean;
+  /** Scramble again whenever a pointer comes over it. */
+  replayOnHover?: boolean;
 }) {
   // Typed to match the cast tag below; every tag this renders is an
   // HTMLElement and only generic members are used.
@@ -31,17 +37,19 @@ export function ScrambleText({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || !active) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let timer: ReturnType<typeof setInterval> | null = null;
     let frame = 0;
     const chars = [...text];
     // Each character locks in at its own moment, left to right with jitter.
-    const locks = chars.map((_, i) => i * 1.5 + Math.random() * 10);
-    const total = Math.max(...locks) + 8;
+    let locks = chars.map((_, i) => i * 1.5 + Math.random() * 10);
+    let total = Math.max(...locks) + 8;
 
     const run = () => {
+      if (timer) return;
+      frame = 0;
       timer = setInterval(() => {
         frame += 1;
         el.textContent = chars
@@ -54,6 +62,7 @@ export function ScrambleText({
         if (frame >= total) {
           el.textContent = text;
           if (timer) clearInterval(timer);
+          timer = null;
         }
       }, speed);
     };
@@ -69,11 +78,20 @@ export function ScrambleText({
     );
     io.observe(el);
 
+    // A replay is quicker than the first reveal: a flicker, not a re-read.
+    const replay = () => {
+      locks = chars.map((_, i) => i * 0.8 + Math.random() * 6);
+      total = Math.max(...locks) + 4;
+      run();
+    };
+    if (replayOnHover) el.addEventListener("pointerenter", replay);
+
     return () => {
       io.disconnect();
+      el.removeEventListener("pointerenter", replay);
       if (timer) clearInterval(timer);
     };
-  }, [text, speed]);
+  }, [text, speed, active, replayOnHover]);
 
   // Every tag this accepts takes the same attributes; casting to one of
   // them keeps the props typed instead of collapsing the union to never.
